@@ -5,6 +5,7 @@ import { GenesisAPI } from "./lib/genesis-api";
 import { ProjectData, ProjectSpecification } from "./types/genesis";
 import { ArrowRight, Loader2, FolderKanban, PlayCircle, AlertTriangle, CheckCircle, Package } from "lucide-react";
 import SpecEditor from "./components/SpecEditor";
+import ExecutionStatusPanel from "./components/ExecutionStatusPanel";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -13,6 +14,7 @@ export default function DashboardHome() {
   const [projects, setProjects] = useState<ProjectData[]>([]);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
+  const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
 
   const fetchProjects = async () => {
     try {
@@ -33,11 +35,10 @@ export default function DashboardHome() {
 
   const handleRunCompiler = async (spec: ProjectSpecification) => {
     setRunning(true);
+    setActiveProjectId(spec.project_id);
     try {
       await GenesisAPI.runCompiler(spec);
       await fetchProjects();
-      // Optionally redirect to project view immediately:
-      // router.push(`/dashboard/project/${spec.project_id}`);
     } catch (e: any) {
       alert(`Compiler Error: ${e.message}`);
     } finally {
@@ -88,13 +89,20 @@ export default function DashboardHome() {
         ))}
       </div>
 
-      {/* Section A: Control Panel (Spec Editor) */}
-      <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-sm">
-        <div className="px-6 py-4 border-b border-slate-800 bg-slate-900/50 flex items-center justify-between">
-          <h2 className="text-base font-semibold text-white">Compiler Console</h2>
+      {/* Section A: Control Panel (Spec Editor) & Status Panel */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 h-[500px]">
+        <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-sm flex flex-col">
+          <div className="px-6 py-4 border-b border-slate-800 bg-slate-900/50 flex items-center justify-between">
+            <h2 className="text-base font-semibold text-white">Compiler Console</h2>
+          </div>
+          <div className="flex-1 p-6">
+             <SpecEditor onRun={handleRunCompiler} onValidate={handleValidateSpec} loading={running} />
+          </div>
         </div>
-        <div className="p-6 h-[500px]">
-           <SpecEditor onRun={handleRunCompiler} onValidate={handleValidateSpec} loading={running} />
+
+        {/* Execution Status Panel placed next to the Spec Editor */}
+        <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-sm flex flex-col">
+          <ExecutionStatusPanel projectId={activeProjectId} />
         </div>
       </div>
 
