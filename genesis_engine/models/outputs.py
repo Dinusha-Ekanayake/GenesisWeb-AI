@@ -91,3 +91,12 @@ class PlanningReport(BaseModel):
 class FileArtifact(BaseModel):
     path: str
     content: str
+
+class DeploymentManifest(BaseModel):
+    project_id: str
+    generation_timestamp: datetime = Field(default_factory=datetime.utcnow)
+    graph_hashes: Dict[str, str] = Field(default_factory=dict)
+    rule_engine_score: int
+    plugin_versions: Dict[str, str] = Field(default_factory=dict)
+    build_status: str
+    deployment_hash: str

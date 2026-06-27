@@ -1,6 +1,7 @@
 from ...interfaces.plugin import GenerationPlugin
 from ...models.outputs import FileArtifact
 from ...rules.base import RuleContext
+from ..validators.tsx_validator import TsxValidator
 from typing import List
 
 class NextJsPlugin(GenerationPlugin):
@@ -30,9 +31,15 @@ class NextJsPlugin(GenerationPlugin):
                 f"}}"
             ]
             
+            final_code = "\n".join(code)
+            
+            is_valid, err_msg = TsxValidator.validate(final_code, filename=path)
+            if not is_valid:
+                raise ValueError(f"Generation Error (NextJsMinimalGenerator): {err_msg}")
+            
             artifacts.append(FileArtifact(
                 path=path,
-                content="\n".join(code)
+                content=final_code
             ))
             
         return artifacts

@@ -1,0 +1,20 @@
+# deployment/templates/Dockerfile.frontend
+# Node 18+ base image
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Copy package.json if it exists
+COPY frontend/package*.json ./
+RUN npm install || echo "No package.json found, skipping..."
+
+# Copy frontend source
+COPY frontend/ .
+
+# Since we don't have a real package.json in the deterministic generator yet,
+# we might skip next build if dependencies aren't there, but typically:
+# RUN npm run build
+
+EXPOSE 3000
+
+CMD ["npm", "start"]

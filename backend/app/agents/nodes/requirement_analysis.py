@@ -51,6 +51,7 @@ def requirement_analysis_node(state: ProjectState) -> dict:
         if project_id:
             project_dir = WorkspaceManager.get_project_dir(project_id)
             spec_path = project_dir / "specification" / "requirements.json"
+            spec_path.parent.mkdir(parents=True, exist_ok=True)
             
             with open(spec_path, "w") as f:
                 json.dump(spec_dict, f, indent=4)

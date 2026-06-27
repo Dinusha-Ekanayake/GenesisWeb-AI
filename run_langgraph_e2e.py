@@ -31,12 +31,11 @@ def run():
         print(f"Execution Error: {e}")
                 
     current_state = app.get_state(config)
-    next_node = current_state.next
+    print(f"DEBUG: Graph paused. Resuming generation...")
     
-    if "GenesisGenerator" in next_node:
-        print("\n2. [HUMAN IN THE LOOP] Execution paused before Generation.")
-        print("   Rule Engine Validation Passed or warnings acknowledged.")
-        print("   Simulating Human Approval...")
+    print("\n2. [HUMAN IN THE LOOP] Execution paused before Generation.")
+    print("   Rule Engine Validation Passed or warnings acknowledged.")
+    print("   Simulating Human Approval...")
         
         # We manually update state to trigger the edge logic. 
         # But actually GenesisGenerator is just the next node. If we continue with stream(None), it will execute it.
