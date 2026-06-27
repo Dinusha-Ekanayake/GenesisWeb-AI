@@ -1,6 +1,11 @@
 import os
+import sys
 import json
 from pathlib import Path
+
+# Ensure the root Genesis Engine directory is on the path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../")))
+
 from fastapi import APIRouter, HTTPException, Depends
 from genesis_engine.core.orchestrator import ExecutionOrchestrator
 from genesis_engine.models.spec import ProjectSpecification

@@ -9,10 +9,17 @@ from app.api.api_v1 import api_router
 async def lifespan(app: FastAPI):
     # For development only: create tables on startup. 
     # In production, Alembic migrations should be used.
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+    except Exception as e:
+        print(f"⚠️ Could not connect to PostgreSQL database during startup: {e}")
+        print("⚠️ Genesis Engine REST APIs will still function, but Database APIs may fail.")
     yield
-    await engine.dispose()
+    try:
+        await engine.dispose()
+    except Exception:
+        pass
 
 app = FastAPI(
     title="GenesisWeb AI",
