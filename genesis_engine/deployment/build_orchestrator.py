@@ -43,13 +43,22 @@ class BuildOrchestrator:
     def execute_build(self, project_id: str, planning_report: dict):
         print(f"\n--- [BuildOrchestrator] Starting Deployment Pipeline for {project_id} ---")
         
-        # 1. Validate Workspace
+        # 1. Validate Workspace existence
         self._validate_workspace(project_id)
         
-        # 2. Inject Docker Templates
+        # 2. Tamper Detection (Verify workspace hasn't been modified since generation)
+        from ..utils.hash_utils import compute_deterministic_workspace_hash
+        project_dir = self.workspace_root / project_id
+        current_hash = compute_deterministic_workspace_hash(project_dir)
+        expected_hash = planning_report.get("workspace_hash", "")
+        
+        if expected_hash and current_hash != expected_hash:
+            raise RuntimeError(f"CompilerTamperError: Workspace integrity compromised! Expected {expected_hash}, got {current_hash}")
+        
+        # 3. Inject Docker Templates
         self._inject_templates(project_id)
         
-        # 3. Deterministically Package Workspace
+        # 4. Deterministically Package Workspace
         manifest = self.packager.bundle(project_id, planning_report)
         
         print(f"--- [BuildOrchestrator] Deployment Bundle Ready: /dist/{project_id}/ ---")

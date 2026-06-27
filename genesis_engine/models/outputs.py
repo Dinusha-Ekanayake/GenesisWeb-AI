@@ -86,6 +86,7 @@ class PlanningReport(BaseModel):
     rule_coverage: Optional[RuleCoverageReport] = None
     
     graph_hashes: Dict[str, str] = Field(default_factory=dict)
+    workspace_hash: str = ""
     assumptions: List[str] = Field(default_factory=list)
 
 class FileArtifact(BaseModel):
@@ -100,3 +101,4 @@ class DeploymentManifest(BaseModel):
     plugin_versions: Dict[str, str] = Field(default_factory=dict)
     build_status: str
     deployment_hash: str
+    workspace_hash: str = ""
