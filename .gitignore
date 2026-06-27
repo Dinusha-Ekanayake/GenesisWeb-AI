@@ -1,0 +1,43 @@
+# Environments
+venv/
+env/
+.venv/
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Logs
+logs/
+*.log
+
+# Genesis Engine Workspace
+workspace/
+artifacts/
+
+# Next.js / Frontend
+node_modules/
+.next/
+out/
+build/
+.DS_Store
