@@ -18,7 +18,7 @@ class GenerationBuilder:
         steps.append(GenerationStep(
             id="gen_api",
             description="Generate FastAPI Endpoints",
-            target_plugin="FastApiPlugin",
+            target_plugin="FastApiMinimalGenerator",
             dependencies=["gen_database"],
             execution_priority=2,
             estimated_outputs=["endpoints.py"],
@@ -28,7 +28,7 @@ class GenerationBuilder:
         steps.append(GenerationStep(
             id="gen_components",
             description="Generate React Macro Components",
-            target_plugin="NextJsAppRouterPlugin",
+            target_plugin="NextJsMinimalGenerator",
             dependencies=["gen_api"],
             execution_priority=3,
             estimated_outputs=["components.tsx"],
