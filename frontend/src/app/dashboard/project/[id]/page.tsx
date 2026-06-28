@@ -57,7 +57,7 @@ export default function ProjectDetail({ params }: { params: { id: string } }) {
             <ArrowLeft className="w-4 h-4 mr-1" /> Back to Workspaces
           </Link>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight text-white">{statusData.id.replace("_", " ").title()}</h1>
+            <h1 className="text-3xl font-bold tracking-tight text-white">{statusData.id.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}</h1>
             <div className="flex flex-wrap items-center gap-4 mt-3 text-sm text-slate-400">
               <span className="flex items-center font-mono bg-slate-800 px-2 py-1 rounded text-slate-300">
                 <FileText className="w-3.5 h-3.5 mr-1.5 opacity-70" /> {statusData.id}
