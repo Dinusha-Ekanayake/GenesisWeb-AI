@@ -1,10 +1,8 @@
 import os
 import sys
-import json
 import uuid
 from pathlib import Path
 from datetime import datetime
-import asyncio
 from functools import wraps
 
 # Ensure the root Genesis Engine directory is on the path
@@ -27,6 +25,7 @@ router = APIRouter(prefix="/genesis", tags=["Genesis Control Plane"])
 WORKSPACE_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../workspace"))
 
 _orchestrator = None
+_compiler_service = None
 
 def _get_orchestrator():
     global _orchestrator
@@ -37,6 +36,16 @@ def _get_orchestrator():
         except Exception as e:
             raise HTTPException(status_code=503, detail=f"Genesis Engine not available: {e}")
     return _orchestrator
+
+def _get_compiler_service():
+    global _compiler_service
+    if _compiler_service is None:
+        try:
+            from backend.app.services.compiler_service import CompilerService
+            _compiler_service = CompilerService(_get_orchestrator())
+        except Exception as e:
+            raise HTTPException(status_code=503, detail=f"Compiler service not available: {e}")
+    return _compiler_service
 
 def _get_spec_class():
     try:
@@ -105,7 +114,7 @@ async def validate_spec(body: dict):
 @handle_exceptions
 async def generate_project(body: dict):
     ProjectSpecification = _get_spec_class()
-    orchestrator = _get_orchestrator()
+    compiler = _get_compiler_service()
     
     spec = ProjectSpecification(**body)
     project_id = PathValidator.validate_project_id(spec.project_id)
@@ -115,13 +124,13 @@ async def generate_project(body: dict):
     
     await FileSystemService.write_json(project_dir / "spec.json", body)
         
-    manifest = await asyncio.to_thread(orchestrator.run_full_pipeline, spec)
+    manifest = await compiler.run_pipeline(spec)
     return api_response({"status": "SUCCESS", "manifest": manifest})
 
 @router.post("/deploy/{project_id}", dependencies=[Depends(RequirePermission(Permission.DEPLOY))])
 @handle_exceptions
 async def deploy_project(project_id: str):
-    orchestrator = _get_orchestrator()
+    compiler = _get_compiler_service()
     
     valid_id = PathValidator.validate_project_id(project_id)
     report_path = PathValidator.resolve_and_validate_path(WORKSPACE_ROOT, f"{valid_id}/artifacts/planning_report.json")
@@ -131,7 +140,7 @@ async def deploy_project(project_id: str):
         
     report = await FileSystemService.read_json(report_path)
         
-    manifest = await asyncio.to_thread(orchestrator.build_orchestrator.execute_build, valid_id, report)
+    manifest = await compiler.run_deploy(valid_id, report)
     return api_response({"status": "SUCCESS", "manifest": manifest})
 
 async def _get_project_data_from_disk(project_id: str):
