@@ -1,63 +1,390 @@
 import os
 import sys
 import json
+import uuid
 from pathlib import Path
+from datetime import datetime
+import asyncio
+from functools import wraps
 
 # Ensure the root Genesis Engine directory is on the path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../")))
 
-from fastapi import APIRouter, HTTPException, Depends
-from genesis_engine.core.orchestrator import ExecutionOrchestrator
-from genesis_engine.models.spec import ProjectSpecification
+from fastapi import APIRouter, HTTPException, Request, Depends
+from fastapi.responses import StreamingResponse, FileResponse
+from backend.app.security.path_validator import PathValidator
+from backend.app.core.exceptions import (
+    GenesisException, WorkspaceSecurityError, WorkspaceNotFoundError, 
+    ArtifactNotFoundError, GraphNotFoundError, CompilerTamperError
+)
+from backend.app.services.filesystem_service import FileSystemService
+from genesis_engine.telemetry.events import TelemetryEventBus
+from backend.app.security.auth import RequirePermission, Permission
 
 router = APIRouter(prefix="/genesis", tags=["Genesis Control Plane"])
 
-# Initialize a singleton orchestrator for the API
+# Workspace root
 WORKSPACE_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../workspace"))
-orchestrator = ExecutionOrchestrator(WORKSPACE_ROOT)
 
-@router.post("/parse")
-def parse_prompt(prompt: str):
-    # Optional LLM adapter hook. Currently stubbed to enforce deterministic compiler only.
-    return {"status": "Not Implemented", "message": "Use direct spec submission for now."}
+_orchestrator = None
 
-@router.post("/plan")
-def plan_spec(spec: ProjectSpecification):
+def _get_orchestrator():
+    global _orchestrator
+    if _orchestrator is None:
+        try:
+            from genesis_engine.core.orchestrator import ExecutionOrchestrator
+            _orchestrator = ExecutionOrchestrator(WORKSPACE_ROOT)
+        except Exception as e:
+            raise HTTPException(status_code=503, detail=f"Genesis Engine not available: {e}")
+    return _orchestrator
+
+def _get_spec_class():
     try:
-        report = orchestrator.validate_spec(spec)
-        return {"status": "SUCCESS", "report": report}
+        from genesis_engine.models.spec import ProjectSpecification
+        return ProjectSpecification
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=503, detail=f"Genesis Engine models not available: {e}")
 
-@router.post("/validate")
-def validate_spec(spec: ProjectSpecification):
-    try:
-        report = orchestrator.validate_spec(spec)
-        return {"status": "SUCCESS", "score": report.graph_integrity_score}
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+def api_response(data=None, error=None, success=True):
+    return {
+        "success": success,
+        "data": data if data is not None else {},
+        "error": error,
+        "timestamp": datetime.utcnow().isoformat(),
+        "request_id": str(uuid.uuid4())
+    }
 
-@router.post("/generate")
-def generate_project(spec: ProjectSpecification):
-    try:
-        manifest = orchestrator.run_full_pipeline(spec)
-        return {"status": "SUCCESS", "manifest": manifest}
-    except RuntimeError as re:
-        raise HTTPException(status_code=423, detail=str(re)) # Locked
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+def handle_exceptions(func):
+    @wraps(func)
+    async def wrapper(*args, **kwargs):
+        try:
+            if asyncio.iscoroutinefunction(func):
+                return await func(*args, **kwargs)
+            else:
+                return func(*args, **kwargs)
+        except WorkspaceSecurityError as e:
+            if getattr(e, 'is_binary', False):
+                raise HTTPException(status_code=415, detail=str(e))
+            raise HTTPException(status_code=403, detail=str(e))
+        except (WorkspaceNotFoundError, ArtifactNotFoundError, GraphNotFoundError) as e:
+            raise HTTPException(status_code=404, detail=str(e))
+        except CompilerTamperError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+    return wrapper
 
-@router.post("/deploy/{project_id}")
-def deploy_project(project_id: str):
+@router.post("/parse", dependencies=[Depends(RequirePermission(Permission.COMPILE))])
+@handle_exceptions
+async def parse_prompt(prompt: str):
+    return api_response({"status": "Not Implemented", "message": "Use direct spec submission for now."})
+
+@router.post("/plan", dependencies=[Depends(RequirePermission(Permission.COMPILE))])
+@handle_exceptions
+async def plan_spec(body: dict):
+    ProjectSpecification = _get_spec_class()
+    orchestrator = _get_orchestrator()
+    spec = ProjectSpecification(**body)
+    PathValidator.validate_project_id(spec.project_id)
+    report = orchestrator.validate_spec(spec)
+    return api_response({"status": "SUCCESS", "report": report})
+
+@router.post("/validate", dependencies=[Depends(RequirePermission(Permission.VALIDATE))])
+@handle_exceptions
+async def validate_spec(body: dict):
+    ProjectSpecification = _get_spec_class()
+    orchestrator = _get_orchestrator()
+    spec = ProjectSpecification(**body)
+    PathValidator.validate_project_id(spec.project_id)
+    report = orchestrator.validate_spec(spec)
+    return api_response({"status": "SUCCESS", "score": report.graph_integrity_score})
+
+@router.post("/generate", dependencies=[Depends(RequirePermission(Permission.COMPILE))])
+@handle_exceptions
+async def generate_project(body: dict):
+    ProjectSpecification = _get_spec_class()
+    orchestrator = _get_orchestrator()
+    
+    spec = ProjectSpecification(**body)
+    project_id = PathValidator.validate_project_id(spec.project_id)
+    
+    project_dir = PathValidator.resolve_and_validate_path(WORKSPACE_ROOT, project_id)
+    await FileSystemService.mkdir(project_dir, parents=True, exist_ok=True)
+    
+    await FileSystemService.write_json(project_dir / "spec.json", body)
+        
+    manifest = await asyncio.to_thread(orchestrator.run_full_pipeline, spec)
+    return api_response({"status": "SUCCESS", "manifest": manifest})
+
+@router.post("/deploy/{project_id}", dependencies=[Depends(RequirePermission(Permission.DEPLOY))])
+@handle_exceptions
+async def deploy_project(project_id: str):
+    orchestrator = _get_orchestrator()
+    
+    valid_id = PathValidator.validate_project_id(project_id)
+    report_path = PathValidator.resolve_and_validate_path(WORKSPACE_ROOT, f"{valid_id}/artifacts/planning_report.json")
+    
+    if not await FileSystemService.exists(report_path):
+        raise HTTPException(status_code=404, detail="Planning report not found. Compile first.")
+        
+    report = await FileSystemService.read_json(report_path)
+        
+    manifest = await asyncio.to_thread(orchestrator.build_orchestrator.execute_build, valid_id, report)
+    return api_response({"status": "SUCCESS", "manifest": manifest})
+
+async def _get_project_data_from_disk(project_id: str):
     try:
-        report_path = Path(WORKSPACE_ROOT) / project_id / "artifacts" / "planning_report.json"
-        if not report_path.exists():
-            raise HTTPException(status_code=404, detail="Planning report not found. Compile first.")
+        valid_id = PathValidator.validate_project_id(project_id)
+        project_dir = PathValidator.resolve_and_validate_path(WORKSPACE_ROOT, valid_id, allow_hidden=True)
+    except Exception:
+        return None
+        
+    if not await FileSystemService.exists(project_dir):
+        return None
+        
+    status = "IDLE"
+    created_at = None
+    
+    trace_file = project_dir / "execution_trace.json"
+    traces = []
+    if await FileSystemService.exists(trace_file):
+        try:
+            trace_data = await FileSystemService.read_json(trace_file)
+            events = trace_data.get("events", [])
             
-        with open(report_path, "r") as f:
-            report = json.load(f)
+            for e in events:
+                traces.append({
+                    "timestamp": e.get("timestamp", ""),
+                    "event": f"{e.get('phase', '')} {e.get('step', '')} {e.get('status', '')}".strip(),
+                    "details": e
+                })
             
-        manifest = orchestrator.build_orchestrator.execute_build(project_id, report)
-        return {"status": "SUCCESS", "manifest": manifest}
+            if events:
+                last_event = events[-1]
+                if last_event.get("phase") == "pipeline" and last_event.get("status") == "completed":
+                    status = "SUCCESS"
+                elif "fail" in str(last_event).lower():
+                    status = "FAILED"
+                else:
+                    status = "RUNNING"
+                    
+                created_at = events[0].get("timestamp")
+        except Exception:
+            pass
+            
+    if not created_at:
+        import datetime
+        ctime = await FileSystemService.get_ctime(project_dir)
+        created_at = datetime.datetime.fromtimestamp(ctime, datetime.timezone.utc).isoformat()
+            
+    report = None
+    report_file = project_dir / "artifacts" / "planning_report.json"
+    if await FileSystemService.exists(report_file):
+        try:
+            report = await FileSystemService.read_json(report_file)
+        except Exception:
+            pass
+            
+    manifest = None
+    manifest_file = project_dir / "artifacts" / "deployment_manifest.json"
+    if await FileSystemService.exists(manifest_file):
+        try:
+            manifest = await FileSystemService.read_json(manifest_file)
+        except Exception:
+            pass
+
+    spec = None
+    spec_file = project_dir / "spec.json"
+    if await FileSystemService.exists(spec_file):
+        try:
+            spec = await FileSystemService.read_json(spec_file)
+        except Exception:
+            pass
+
+    return {
+        "id": project_id,
+        "title": project_id.replace("_", " ").title(),
+        "status": status,
+        "created_at": created_at,
+        "spec": spec,
+        "planning_report": report,
+        "deployment_manifest": manifest,
+        "execution_trace": traces
+    }
+
+@router.get("/projects", dependencies=[Depends(RequirePermission(Permission.READ_WORKSPACE))])
+@handle_exceptions
+async def list_projects():
+    projects = []
+    root = Path(WORKSPACE_ROOT)
+    if not await FileSystemService.exists(root):
+        return api_response(projects)
+        
+    dirs = await FileSystemService.list_directory(root)
+    for d in dirs:
+        if await FileSystemService.is_dir(d):
+            try:
+                PathValidator.validate_project_id(d.name)
+                data = await _get_project_data_from_disk(d.name)
+                if data:
+                    projects.append(data)
+            except WorkspaceSecurityError:
+                continue
+    projects.sort(key=lambda x: x["created_at"], reverse=True)
+    return api_response(projects)
+
+@router.get("/projects/{project_id}", dependencies=[Depends(RequirePermission(Permission.READ_WORKSPACE))])
+@handle_exceptions
+async def get_project(project_id: str):
+    data = await _get_project_data_from_disk(project_id)
+    if not data:
+        raise WorkspaceNotFoundError("Project not found in workspace")
+    return api_response(data)
+
+from backend.app.security.auth import get_user_repository, Permission
+from backend.app.security.jwt_service import JWTService
+
+@router.get("/events")
+async def sse_events(
+    request: Request, 
+    project_id: str = "*", 
+    token: str = None,
+    user_repo = Depends(get_user_repository)
+):
+    # Manually authenticate because EventSource cannot send headers
+    if not token:
+        raise HTTPException(status_code=401, detail="Missing token")
+        
+    payload = JWTService.decode_token(token)
+    if not payload or not payload.get("sub"):
+        raise HTTPException(status_code=401, detail="Invalid token")
+        
+    user = user_repo.get_user(payload.get("sub"))
+    if not user or Permission.READ_WORKSPACE not in user.permissions:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    async def event_generator():
+        try:
+            if project_id != "*":
+                PathValidator.validate_project_id(project_id)
+        except WorkspaceSecurityError:
+            yield "data: {\"error\": \"Invalid project_id\"}\n\n"
+            return
+            
+        loop = asyncio.get_running_loop()
+        subscriber = TelemetryEventBus.subscribe(project_id, queue_size=50)
+        
+        try:
+            while True:
+                if await request.is_disconnected():
+                    break
+                    
+                # Heartbeat
+                try:
+                    event = await loop.run_in_executor(None, subscriber.get, True, 20.0)
+                    yield f"data: {json.dumps(event)}\n\n"
+                except asyncio.TimeoutError:
+                    yield f"data: {json.dumps({'event_id': str(uuid.uuid4()), 'project_id': project_id, 'phase': 'Heartbeat', 'timestamp': datetime.utcnow().isoformat()})}\n\n"
+                except Exception:
+                    pass
+        finally:
+            TelemetryEventBus.unsubscribe(project_id, subscriber)
+            
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+@router.get("/projects/{project_id}/status", dependencies=[Depends(RequirePermission(Permission.READ_WORKSPACE))])
+@handle_exceptions
+async def get_project_status(project_id: str):
+    data = await _get_project_data_from_disk(project_id)
+    if not data:
+        raise WorkspaceNotFoundError("Project not found")
+    return api_response({
+        "id": data["id"],
+        "status": data["status"],
+        "created_at": data["created_at"]
+    })
+
+@router.get("/projects/{project_id}/telemetry", dependencies=[Depends(RequirePermission(Permission.READ_WORKSPACE))])
+@handle_exceptions
+async def get_project_telemetry(project_id: str):
+    data = await _get_project_data_from_disk(project_id)
+    if not data:
+        raise WorkspaceNotFoundError("Project not found")
+    return api_response(data.get("execution_trace", []))
+
+@router.get("/projects/{project_id}/manifest", dependencies=[Depends(RequirePermission(Permission.READ_WORKSPACE))])
+@handle_exceptions
+async def get_project_manifest(project_id: str):
+    data = await _get_project_data_from_disk(project_id)
+    if not data:
+        raise WorkspaceNotFoundError("Project not found")
+    return api_response(data.get("deployment_manifest"))
+
+@router.get("/projects/{project_id}/graphs", dependencies=[Depends(RequirePermission(Permission.READ_WORKSPACE))])
+@handle_exceptions
+async def get_project_graphs(project_id: str):
+    valid_id = PathValidator.validate_project_id(project_id)
+    artifacts_dir = PathValidator.resolve_and_validate_path(WORKSPACE_ROOT, f"{valid_id}/artifacts", allow_hidden=True)
+    if not await FileSystemService.exists(artifacts_dir):
+        return api_response({})
+        
+    graphs = {}
+    files = await FileSystemService.list_directory(artifacts_dir)
+    for f in files:
+        if f.name.endswith("_graph.json"):
+            try:
+                graphs[f.stem] = await FileSystemService.read_json(f)
+            except Exception:
+                pass
+    return api_response(graphs)
+
+@router.get("/projects/{project_id}/workspace", dependencies=[Depends(RequirePermission(Permission.READ_WORKSPACE))])
+@handle_exceptions
+async def get_project_workspace(project_id: str):
+    valid_id = PathValidator.validate_project_id(project_id)
+    project_dir = PathValidator.resolve_and_validate_path(WORKSPACE_ROOT, valid_id, allow_hidden=True)
+    
+    if not await FileSystemService.exists(project_dir):
+        raise WorkspaceNotFoundError("Project not found")
+        
+    tree = await FileSystemService.build_project_tree(project_dir, PathValidator.FORBIDDEN_NAMES)
+    return api_response(tree)
+
+@router.get("/projects/{project_id}/file", dependencies=[Depends(RequirePermission(Permission.READ_WORKSPACE))])
+@handle_exceptions
+async def get_project_file(project_id: str, path: str):
+    valid_id = PathValidator.validate_project_id(project_id)
+    file_path = PathValidator.resolve_and_validate_path(WORKSPACE_ROOT, f"{valid_id}/{path}", is_preview=True)
+        
+    try:
+        content = await FileSystemService.read_text(file_path)
+        return api_response({"content": content})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Cannot read file: {e}")
+
+@router.get("/projects/{project_id}/artifacts/{artifact_name}", dependencies=[Depends(RequirePermission(Permission.DOWNLOAD_ARTIFACTS))])
+async def download_artifact(project_id: str, artifact_name: str):
+    try:
+        valid_id = PathValidator.validate_project_id(project_id)
+        valid_artifact = PathValidator.validate_artifact_name(artifact_name)
+        
+        if valid_artifact == "deployment_bundle.zip":
+            file_path = PathValidator.resolve_and_validate_path(WORKSPACE_ROOT, f"{valid_id}/exports/{valid_artifact}")
+        else:
+            file_path = PathValidator.resolve_and_validate_path(WORKSPACE_ROOT, f"{valid_id}/artifacts/{valid_artifact}")
+            
+        if not await FileSystemService.is_file(file_path):
+            raise ArtifactNotFoundError("Artifact not found")
+            
+        return FileResponse(
+            path=file_path,
+            filename=valid_artifact,
+            media_type="application/octet-stream" if valid_artifact.endswith(".zip") else "application/json"
+        )
+    except WorkspaceSecurityError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    except (ArtifactNotFoundError, FileNotFoundError):
+        raise HTTPException(status_code=404, detail="Artifact not found")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

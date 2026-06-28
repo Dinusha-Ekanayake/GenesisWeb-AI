@@ -99,6 +99,9 @@ class ExecutionOrchestrator:
                 with open(report_path, "w") as f:
                     f.write(report.model_dump_json(indent=2))
             
+            # 2.5 Quality Gate Enforcement Removed
+            # The compiler must remain independent from CI/CD responsibilities.
+            
             # 3. Deployment Packaging
             self.telemetry.log_execution_trace(project_id, {"phase": "pipeline", "step": "deployment", "status": "started"})
             manifest = self.build_orchestrator.execute_build(project_id, report.model_dump(mode="json"))

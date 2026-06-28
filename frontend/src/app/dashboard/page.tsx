@@ -8,39 +8,34 @@ import SpecEditor from "./components/SpecEditor";
 import ExecutionStatusPanel from "./components/ExecutionStatusPanel";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useProjects, useSSE } from "./lib/hooks";
+import { toast } from "sonner";
 
 export default function DashboardHome() {
   const router = useRouter();
-  const [projects, setProjects] = useState<ProjectData[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: projects = [], isLoading: loading, error, refetch } = useProjects();
   const [running, setRunning] = useState(false);
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
 
-  const fetchProjects = async () => {
-    try {
-      const data = await GenesisAPI.getProjects();
-      setProjects(data);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Subscribe to global SSE for automatic invalidation
+  useSSE("*");
 
   useEffect(() => {
-    fetchProjects();
-    const interval = setInterval(fetchProjects, 5000);
-    return () => clearInterval(interval);
-  }, []);
+    if (error && (error as any).status === 401) {
+      router.push("/login");
+    }
+  }, [error, router]);
+
+  const backendError = error && (error as any).status !== 401 ? (error as any).message || "Cannot connect to backend" : null;
 
   const handleRunCompiler = async (spec: ProjectSpecification) => {
     setRunning(true);
     setActiveProjectId(spec.project_id);
     try {
       await GenesisAPI.runCompiler(spec);
-      await fetchProjects();
+      await refetch();
     } catch (e: any) {
-      alert(`Compiler Error: ${e.message}`);
+      toast.error(`Compiler Error: ${e.message}`);
     } finally {
       setRunning(false);
     }
@@ -49,9 +44,9 @@ export default function DashboardHome() {
   const handleValidateSpec = async (spec: ProjectSpecification) => {
     try {
       await GenesisAPI.validateSpec(spec);
-      alert("Spec is valid!");
+      toast.success("Spec is valid!");
     } catch (e: any) {
-      alert(`Validation Error: ${e.message}`);
+      toast.error(`Validation Error: ${e.message}`);
     }
   };
 
@@ -68,6 +63,15 @@ export default function DashboardHome() {
         <h1 className="text-2xl font-bold tracking-tight text-white">Dashboard</h1>
         <p className="text-slate-400 mt-1">Manage and monitor Genesis Engine compiler runs.</p>
       </div>
+
+      {/* Backend offline banner */}
+      {backendError && (
+        <div className="flex items-center gap-3 bg-red-950/60 border border-red-500/40 text-red-300 px-5 py-3 rounded-lg text-sm">
+          <span className="text-red-400 font-bold">⚠ Backend Offline:</span>
+          <span>{backendError}</span>
+          <span className="ml-auto text-red-400/70 text-xs font-mono">Run: uvicorn main:app --reload  (in /backend)</span>
+        </div>
+      )}
 
       {/* Section B: System Status Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

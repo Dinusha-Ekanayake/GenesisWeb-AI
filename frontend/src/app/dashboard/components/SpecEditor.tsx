@@ -1,8 +1,25 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { ProjectSpecification } from "../types/genesis";
 import { Play, CheckSquare, Loader2, AlertCircle } from "lucide-react";
+import dynamic from "next/dynamic";
+
+const MonacoEditor = dynamic(() => import("@monaco-editor/react"), {
+  ssr: false,
+  loading: () => (
+    <div className="absolute inset-0 w-full h-full p-6 bg-slate-950 flex flex-col gap-4 animate-pulse">
+      <div className="h-4 bg-slate-800 rounded w-1/3"></div>
+      <div className="h-4 bg-slate-800 rounded w-1/2"></div>
+      <div className="h-4 bg-slate-800 rounded w-1/4"></div>
+      <div className="h-4 bg-slate-800 rounded w-2/5"></div>
+      <div className="h-4 bg-slate-800 rounded w-1/3"></div>
+      <div className="absolute inset-0 flex items-center justify-center text-slate-600 font-mono text-sm">
+        Loading Monaco Editor...
+      </div>
+    </div>
+  )
+});
 
 interface SpecEditorProps {
   onRun: (spec: ProjectSpecification) => Promise<void>;
@@ -21,6 +38,46 @@ const DEFAULT_SPEC: ProjectSpecification = {
 export default function SpecEditor({ onRun, onValidate, loading }: SpecEditorProps) {
   const [jsonText, setJsonText] = useState(JSON.stringify(DEFAULT_SPEC, null, 2));
   const [error, setError] = useState<string | null>(null);
+  const editorRef = useRef<any>(null);
+
+  const handleEditorDidMount = (editor: any, monaco: any) => {
+    editorRef.current = editor;
+
+    // JSON Schema validation
+    monaco.languages.json.jsonDefaults.setDiagnosticsOptions({
+      validate: true,
+      schemas: [{
+        uri: "http://myserver/project-schema.json",
+        fileMatch: ["*"],
+        schema: {
+          type: "object",
+          properties: {
+            project_id: { type: "string" },
+            name: { type: "string" },
+            description: { type: "string" },
+            pages: { type: "array", items: { type: "string" } },
+            components: { type: "array", items: { type: "string" } }
+          },
+          required: ["project_id"]
+        }
+      }]
+    });
+
+    // Add Ctrl+S for Validate
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
+      handleValidate();
+    });
+
+    // Add Ctrl+Enter for Run Compiler
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
+      handleRun();
+    });
+    
+    // Auto format on load
+    setTimeout(() => {
+      editor.getAction('editor.action.formatDocument')?.run();
+    }, 500);
+  };
 
   const parseSpec = (): ProjectSpecification | null => {
     try {
@@ -34,13 +91,21 @@ export default function SpecEditor({ onRun, onValidate, loading }: SpecEditorPro
   };
 
   const handleRun = async () => {
+    if (loading) return;
     const spec = parseSpec();
     if (spec) await onRun(spec);
   };
 
   const handleValidate = async () => {
+    if (loading) return;
     const spec = parseSpec();
     if (spec && onValidate) await onValidate(spec);
+  };
+
+  const handleFormat = () => {
+    if (editorRef.current) {
+      editorRef.current.getAction('editor.action.formatDocument').run();
+    }
   };
 
   return (
@@ -58,37 +123,57 @@ export default function SpecEditor({ onRun, onValidate, loading }: SpecEditorPro
         </div>
         
         <div className="flex items-center gap-2">
+          <button 
+            onClick={handleFormat} 
+            disabled={loading}
+            className="px-3 py-1.5 text-xs font-medium text-slate-400 hover:text-white transition-colors disabled:opacity-50"
+          >
+            Format
+          </button>
           {onValidate && (
             <button 
               onClick={handleValidate} 
               disabled={loading}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 rounded transition-colors disabled:opacity-50 border border-slate-700"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 rounded transition-colors disabled:opacity-50 border border-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-500"
             >
-              <CheckSquare className="w-3.5 h-3.5" /> Validate
+              <CheckSquare className="w-3.5 h-3.5" /> Validate <span className="hidden xl:inline opacity-50 ml-1">(Ctrl+S)</span>
             </button>
           )}
           <button 
             onClick={handleRun} 
             disabled={loading}
-            className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-500 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm shadow-blue-900/50"
+            className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-500 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm shadow-blue-900/50 focus:outline-none focus:ring-2 focus:ring-blue-400"
           >
             {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5 fill-current" />}
-            Run Compiler
+            Run Compiler <span className="hidden xl:inline opacity-50 ml-1">(Ctrl+Enter)</span>
           </button>
         </div>
       </div>
 
       {/* Editor Body */}
-      <div className="flex-1 relative">
-        <textarea
+      <div className="flex-1 relative bg-slate-950">
+        <MonacoEditor
+          height="100%"
+          language="json"
+          theme="vs-dark"
           value={jsonText}
-          onChange={(e) => {
-            setJsonText(e.target.value);
+          onChange={(val) => {
+            setJsonText(val || "");
             if (error) setError(null);
           }}
-          className="absolute inset-0 w-full h-full p-6 bg-slate-950 text-slate-300 font-mono text-sm leading-relaxed focus:outline-none resize-none selection:bg-blue-500/30"
-          spellCheck={false}
-          style={{ tabSize: 2 }}
+          onMount={handleEditorDidMount}
+          options={{
+            minimap: { enabled: false },
+            wordWrap: "on",
+            readOnly: loading,
+            formatOnPaste: true,
+            tabSize: 2,
+            fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+            fontSize: 13,
+            padding: { top: 16 },
+            scrollBeyondLastLine: false,
+            smoothScrolling: true,
+          }}
         />
         
         {error && (

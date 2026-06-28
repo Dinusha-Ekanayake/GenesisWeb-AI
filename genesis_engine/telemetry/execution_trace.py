@@ -40,3 +40,10 @@ class TelemetryLogger:
         
         with open(trace_file, "w") as f:
             json.dump(full_trace, f, indent=4)
+            
+        # Publish event via EventBus
+        try:
+            from .events import TelemetryEventBus
+            TelemetryEventBus.publish(project_id, event)
+        except ImportError:
+            pass

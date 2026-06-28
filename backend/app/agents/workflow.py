@@ -1,10 +1,10 @@
-from langgraph.graph import StateGraph, END
+from langgraph.graph import StateGraph, END  # type: ignore
 from .state import ProjectState
 from .nodes.project_manager import project_manager_node
 from .nodes.requirement_analysis import requirement_analysis_node
 from .nodes.genesis_compiler import genesis_compiler_node
 from .nodes.genesis_generator import genesis_generator_node
-from langgraph.checkpoint.sqlite import SqliteSaver
+from langgraph.checkpoint.sqlite import SqliteSaver  # type: ignore
 
 memory = SqliteSaver.from_conn_string(":memory:")
 

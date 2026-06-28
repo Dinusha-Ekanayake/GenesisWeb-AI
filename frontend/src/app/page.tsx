@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function Home() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-24 bg-gradient-to-b from-background to-slate-50 dark:to-slate-900">
@@ -9,12 +11,12 @@ export default function Home() {
       </p>
       
       <div className="flex gap-4">
-        <button className="px-6 py-3 bg-primary text-primary-foreground rounded-lg font-medium shadow-md hover:opacity-90 transition-opacity">
+        <Link href="/dashboard" className="px-6 py-3 bg-primary text-primary-foreground rounded-lg font-medium shadow-md hover:opacity-90 transition-opacity">
           Create New Project
-        </button>
-        <button className="px-6 py-3 bg-slate-200 dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg font-medium shadow-sm hover:opacity-90 transition-opacity">
+        </Link>
+        <Link href="/dashboard" className="px-6 py-3 bg-slate-200 dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg font-medium shadow-sm hover:opacity-90 transition-opacity">
           View Dashboard
-        </button>
+        </Link>
       </div>
     </main>
   );
