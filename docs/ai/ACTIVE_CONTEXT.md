@@ -152,6 +152,24 @@ Milestone 5.1 is complete for the Run Overview only:
 - Did not change backend, API, auth, or compiler behavior.
 - Did not add mock data, fake Run history, or invent backend endpoints.
 
+Milestone 5.3 is complete for the Architecture Graph surface only:
+
+- Added `frontend/src/components/run/RunArchitectureGraph.tsx` — pure component (uses `useState` for graph tab selection, no backend calls). Receives `RunViewModel`. Shows: graph-name selector buttons (one per key in `run.architectureGraphs`), a collection stats grid (counts of `endpoints`, `pages`, `components`, `features`, `tables` where present), and the selected graph's raw JSON in a scrollable `<pre>` block. Unavailable state (LimitedState + Open Compiler link) when `!run.capabilities.hasArchitectureGraphs` or the graph record is empty.
+- Updated `frontend/src/components/routes/RunRouteScaffold.tsx` — replaced the old architecture badge card (showed only graph keys as badges) with `<RunArchitectureGraph run={run} />`. Removed the now-unused `CapabilityBadge` import.
+- Added `frontend/tests/run-architecture.test.tsx` with 13 tests: unavailable state (capability false, undefined graphs), graph selector buttons, graph count label, collection stats, raw JSON in pre block, no invented data, graph tab switching via fireEvent.click, unknown graph shape (no stats, still shows JSON), aria-pressed on active button, singular/plural graph count label, and 2 RunRouteScaffold integration tests (with/without architecture_graphs in mocked project).
+- Decision: did not reuse `GraphInspector`. Reason: `GraphInspector` calls `useProjectGraphs(projectId)` (a separate backend request we already satisfy via the adapter), depends on `@xyflow/react` (React Flow — not installed in test env, hard to mock), and uses hardcoded slate colors.
+- Did not implement Workspace or Artifacts surfaces.
+- Did not change backend, API, auth, or compiler behavior.
+- Did not add mock data, fake Run history, or invent backend endpoints.
+- `@testing-library/user-event` is not installed — used `fireEvent` from `@testing-library/react` instead.
+
+Current validation status after Milestone 5.3:
+
+- `npm.cmd run lint` passes.
+- `npm.cmd run build` passes and lists all target/legacy routes.
+- `npm.cmd test` passes: 15 files, 79 tests.
+- `git diff --check` passes with CRLF warnings only.
+
 Milestone 5.2 is complete for the Planning Report surface only:
 
 - Added `frontend/src/components/run/RunPlanningReport.tsx` — pure prop-driven component receiving `RunViewModel` from the existing adapter. Shows: status header (rule_validation_status, integrity score, planning_duration_ms, error/warning counts), 8-tile metrics grid (features, pages, APIs, entities, components, dependencies, errors, warnings), optional rule coverage card (api_coverage, db_coverage, ui_coverage, overall_score), failed rules list (only when failed_rules is non-empty), planning assumptions list (only when non-empty), full rule execution trace with PASS/FAIL/WARN status badges per rule and inline context JSON, and graph/workspace hashes.
@@ -244,4 +262,4 @@ The root `.gitignore` has unrelated existing changes, including a final literal 
 
 Stop here until the user explicitly approves the next step.
 
-Current stopping point is Milestone 5.2 Planning Report. Wait for explicit approval before Milestone 5.3+ (Architecture, Workspace, Artifacts surfaces) or any other product UI work.
+Current stopping point is Milestone 5.3 Architecture Graph. Wait for explicit approval before Milestone 5.4+ (Workspace, Artifacts surfaces) or any other product UI work.

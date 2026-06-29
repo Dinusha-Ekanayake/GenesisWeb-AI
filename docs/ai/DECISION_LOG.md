@@ -241,6 +241,25 @@ Risk: Medium. New routes are intentionally skeletal and only expose latest-known
 
 Outcome: Target routes build successfully, shell navigation reaches them, adapter-backed project/run pages render honest limited states, and full frontend validation passes.
 
+## 2026-06-29 21:46 +05:30
+
+Decision: Create `RunArchitectureGraph.tsx` as a new pure component rather than reusing `GraphInspector` from the legacy dashboard.
+
+Reason: Three blockers prevent reuse. (1) `GraphInspector` calls `useProjectGraphs(projectId)` — a separate backend request that duplicates the data already provided by the adapter via `run.architectureGraphs`. Making a second backend call from within a Run surface would violate the identity rule (backend calls must use `backendProjectId`, not URL-derived IDs). (2) `GraphInspector` depends on `@xyflow/react` (React Flow), which is an SSR-incompatible dependency using dynamic import, requires canvas/SVG mocking in tests, and is not installed in the test environment. (3) `GraphInspector` uses hardcoded slate dark colors inconsistent with the design token system.
+
+Files affected:
+
+- `frontend/src/components/run/RunArchitectureGraph.tsx` — new; graph selector buttons, collection stats grid (endpoints/pages/components/features/tables counts), raw JSON pre block, unavailable state with Open Compiler link
+- `frontend/src/components/routes/RunRouteScaffold.tsx` — replaced old badge-only architecture card with `<RunArchitectureGraph run={run} />`; removed unused `CapabilityBadge` import
+- `frontend/tests/run-architecture.test.tsx` — new; 13 tests using `fireEvent` (not `userEvent` — package not installed)
+- `docs/ai/ACTIVE_CONTEXT.md` — updated
+- `docs/ai/DECISION_LOG.md` — updated
+- `docs/ai/CURRENT_MILESTONE.md` — updated
+
+Risk: Low. `RunArchitectureGraph` is a pure component except for `useState` (graph tab selection). The `useState` call is placed unconditionally before the early return guard to satisfy React's Rules of Hooks. All access to `unknown`-typed graph values goes through a safe object check in `deriveGraphStats`. The React Flow dependency is not imported and is not needed.
+
+Outcome: Lint, build, and all 79 tests pass. The `/projects/[id]/runs/[runId]/architecture` surface renders real adapter-sourced graph data: graph-name tabs, known-collection counts, and full raw graph JSON. No backend, API, auth, or compiler behavior was changed. No mock data or invented endpoints were added.
+
 ## 2026-06-29 19:44 +05:30
 
 Decision: Create `RunPlanningReport.tsx` as a new pure component rather than reusing `PlanningReportViewer` from the legacy dashboard.

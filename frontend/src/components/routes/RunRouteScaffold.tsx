@@ -7,8 +7,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { StatusBadge } from "@/components/ui/status-badge";
 import { toRunViewModel } from "@/lib/genesis/adapters";
 import type { RunViewModel } from "@/lib/genesis/view-models";
-import { CapabilityBadge, LimitedState, RouteScaffold } from "./RouteScaffold";
+import { LimitedState, RouteScaffold } from "./RouteScaffold";
 import { RunOverview } from "@/components/run/RunOverview";
+import { RunArchitectureGraph } from "@/components/run/RunArchitectureGraph";
 import { RunPlanningReport } from "@/components/run/RunPlanningReport";
 
 type RunSurface = "overview" | "compiler" | "architecture" | "workspace" | "artifacts" | "report";
@@ -140,22 +141,7 @@ function SurfaceContent({ run, surface }: { run: RunViewModel; surface: RunSurfa
     );
   }
 
-  if (surface === "architecture") {
-    if (!run.capabilities.hasArchitectureGraphs) {
-      return <LimitedState title="No architecture graphs available" description="The current backend project record does not include graph data for this latest known Run." />;
-    }
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Available Graph Groups</CardTitle>
-          <CardDescription>Architecture rendering is deferred; this shell exposes available graph keys only.</CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-wrap gap-2">
-          {Object.keys(run.architectureGraphs || {}).map((key) => <CapabilityBadge key={key} enabled label={key} />)}
-        </CardContent>
-      </Card>
-    );
-  }
+  if (surface === "architecture") return <RunArchitectureGraph run={run} />;
 
   if (surface === "workspace") {
     return (
