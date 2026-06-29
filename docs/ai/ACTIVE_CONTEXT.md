@@ -152,6 +152,23 @@ Milestone 5.1 is complete for the Run Overview only:
 - Did not change backend, API, auth, or compiler behavior.
 - Did not add mock data, fake Run history, or invent backend endpoints.
 
+Milestone 6 is complete for the Dashboard / Product Home Redesign only:
+
+- Created `frontend/src/components/dashboard/ControlPlaneHome.tsx` — "use client" component using `useProjects()` and the existing adapter. Renders inside `RouteScaffold` (eyebrow: "Platform", title: "Genesis Engine", description: "Specification Compiler Platform"). Header actions: **Open Compiler** (accent/primary, links to `/compiler`) + **View Projects** (secondary, links to `/projects`). Content states: loading spinner, backend error banner (using error token, no hardcoded slate), empty `LimitedState` with "Open Compiler" CTA, or — when projects exist — a `StatsStrip` (4 tiles: Projects / Active Builds / Failed / Deployed, all derived from real `useProjects()` data) and a `RecentProjectsGrid` (up to 6 adapter-mapped project cards, each linking to `/projects/[id]/runs/[id]` using `backendProjectId`). Honest disclaimer: "Each project currently exposes its latest known Run only. Real Run history requires a future backend endpoint."
+- Modified `frontend/src/app/dashboard/page.tsx` — replaced the entire previous content (SpecEditor, ExecutionStatusPanel, `handleRunCompiler`, `handleValidateSpec`, `useSSE("*")`, all hardcoded slate classes) with a single import and render of `ControlPlaneHome`. The `/dashboard` route continues to exist.
+- Modified `frontend/src/app/page.tsx` — replaced the generic chatbot/assistant landing page (hardcoded slate gradients, "builds... from a simple prompt") with a proper Genesis control plane entry page using design tokens: "Specification Compiler" heading, subtitle, "Open Compiler" CTA → `/compiler`, "View Projects" CTA → `/projects`. No AppShell wrapper (standalone page).
+- Created `frontend/tests/control-plane-home.test.tsx` — 19 tests: heading/subtitle, CTA links, loading state, error state, empty LimitedState with CTA, project names from adapter, card links using backendProjectId and run.id, "latest known Run" language, stats counts (Projects, Failed, Active Builds, Deployed), no SpecEditor, no ExecutionStatusPanel, no fabricated data, cap-at-6 projects.
+- Two test fixes during development: (1) "Open Compiler" test used `getByRole` but empty state renders TWO "Open Compiler" links (header CTA + LimitedState CTA) — fixed with `getAllByRole`. (2) "Failed" stat label collides with `StatusBadge.label = "Failed"` for FAILED projects — fixed with `getAllByText`.
+- `/projects` page unchanged. `/compiler` page unchanged. All legacy dashboard sub-routes unchanged.
+- Removed prototype dashboard behaviors: no embedded SpecEditor, no ExecutionStatusPanel, no global SSE subscription, no slate color classes, no chatbot/assistant language.
+
+Current validation status after Milestone 6:
+
+- `npm.cmd run lint` passes.
+- `npm.cmd run build` passes and lists all target/legacy routes.
+- `npm.cmd test` passes: **18 files, 131 tests**.
+- `git diff --check` passes with CRLF warnings only.
+
 Milestone 5.6 is complete for the Run Detail Visual QA and Consistency Pass only:
 
 - Inspected all six Run detail components and the shared RouteScaffold. No hardcoded slate colors, no fake data, no invented endpoints, no fabricated run history found anywhere in the suite.
@@ -312,4 +329,4 @@ The root `.gitignore` has unrelated existing changes, including a final literal 
 
 ## Next Task
 
-Stop here until the user explicitly approves the next milestone. All M5 sub-milestones including the QA pass (M5.6) are complete. Current validation baseline: 17 files / 112 tests.
+Stop here until the user explicitly approves the next milestone. M6 (Dashboard Redesign) is complete. Current validation baseline: 18 files / 131 tests.

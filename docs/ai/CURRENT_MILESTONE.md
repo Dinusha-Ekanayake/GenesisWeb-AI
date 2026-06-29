@@ -1,6 +1,6 @@
 # Current Milestone
 
-Status: complete — Milestone 5.6 (Run Detail Visual QA and Consistency Pass). All M5 sub-milestones are complete.
+Status: complete — Milestone 6 (Dashboard / Product Home Redesign).
 
 ## Completed Milestones
 
@@ -19,6 +19,7 @@ Status: complete — Milestone 5.6 (Run Detail Visual QA and Consistency Pass). 
 - M5.4: Workspace Surface
 - M5.5: Artifacts Surface
 - M5.6: Run Detail Visual QA and Consistency Pass
+- M6: Dashboard / Product Home Redesign
 
 ## Current Validation Baseline
 
@@ -31,7 +32,7 @@ npm.cmd test
 git diff --check
 ```
 
-Expected baseline (M5.6): lint pass, build pass, **17 files / 112 tests pass**, diff --check pass (CRLF warnings only).
+Expected baseline (M6): lint pass, build pass, **18 files / 131 tests pass**, diff --check pass (CRLF warnings only).
 
 ## Stopping Point
 

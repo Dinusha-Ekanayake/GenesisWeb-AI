@@ -1,22 +1,38 @@
 import Link from "next/link";
+import { FolderKanban, Terminal } from "lucide-react";
 
 export default function Home() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-24 bg-gradient-to-b from-background to-slate-50 dark:to-slate-900">
-      <h1 className="text-5xl font-extrabold tracking-tight mb-6">
-        Welcome to <span className="text-primary">GenesisWeb AI</span>
-      </h1>
-      <p className="text-lg text-slate-600 dark:text-slate-300 max-w-2xl text-center mb-10">
-        The ultimate Multi-Agent System that builds, designs, and orchestrates full-stack web applications from a simple prompt.
-      </p>
-      
-      <div className="flex gap-4">
-        <Link href="/dashboard" className="px-6 py-3 bg-primary text-primary-foreground rounded-lg font-medium shadow-md hover:opacity-90 transition-opacity">
-          Create New Project
-        </Link>
-        <Link href="/dashboard" className="px-6 py-3 bg-slate-200 dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg font-medium shadow-sm hover:opacity-90 transition-opacity">
-          View Dashboard
-        </Link>
+    <main className="flex min-h-screen flex-col items-center justify-center bg-surface-app px-6 py-12">
+      <div className="w-full max-w-lg space-y-8 text-center">
+        <div className="space-y-3">
+          <p className="text-xs font-semibold uppercase tracking-widest text-[color:var(--text-tertiary)]">
+            Genesis Engine
+          </p>
+          <h1 className="text-4xl font-semibold tracking-tight text-foreground">
+            Specification Compiler
+          </h1>
+          <p className="text-base text-[color:var(--text-secondary)]">
+            Compile structured specifications into full-stack deployable applications.
+          </p>
+        </div>
+
+        <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+          <Link
+            href="/compiler"
+            className="inline-flex items-center gap-2 rounded-sm bg-accent px-5 py-2.5 text-sm font-medium text-accent-foreground hover:bg-accent-hover"
+          >
+            <Terminal className="h-4 w-4" aria-hidden="true" />
+            Open Compiler
+          </Link>
+          <Link
+            href="/projects"
+            className="inline-flex items-center gap-2 rounded-sm border border-border bg-surface-base px-5 py-2.5 text-sm font-medium text-foreground hover:bg-surface-hover"
+          >
+            <FolderKanban className="h-4 w-4" aria-hidden="true" />
+            View Projects
+          </Link>
+        </div>
       </div>
     </main>
   );

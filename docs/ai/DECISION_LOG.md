@@ -1,5 +1,39 @@
 # Decision Log
 
+## 2026-06-30 01:05 +05:30
+
+Decision: Replace the legacy dashboard page with a `ControlPlaneHome` component that positions Genesis as a Specification Compiler control plane, not a chatbot or live-compilation panel.
+
+Key decisions within M6:
+
+1. **Remove SpecEditor and ExecutionStatusPanel from the dashboard.** These belong exclusively at `/compiler`. Keeping them on the dashboard created the false impression that the dashboard is the live compilation entry point.
+
+2. **Remove `useSSE("*")` global subscription from the dashboard.** Without a live compilation workflow on the dashboard, there is no need to listen for server-sent events. The user is redirected to the Run detail page after compile (via CompilerWorkspace CTA), so the dashboard does not need to auto-refresh.
+
+3. **Retain the stats strip.** Total Projects, Active Builds, Failed, and Deployed counts are derived from real backend project data via `useProjects()`. These are accurate live numbers, not invented metrics.
+
+4. **Cap the Recent Projects grid at 6 cards.** The full project list is available at `/projects`. The dashboard is a control plane overview, not a full project manager.
+
+5. **Use the existing adapter (`toProjectViewModel`) for card data.** Project card links use `backendProjectId` and `run.id` (which are identical under the current adapter identity rule), not URL-derived or invented IDs.
+
+6. **Root `/` page redesigned** to match the compiler control plane tone: design tokens throughout (no hardcoded slate), "Specification Compiler" identity, "Open Compiler" primary CTA → `/compiler`, "View Projects" secondary CTA → `/projects`.
+
+7. **`StatusBadge` renders title-case labels** (e.g., "Failed" for FAILED status). This caused a test collision when `getByText("Failed")` found both the stat tile label and the StatusBadge on a FAILED project card. Fixed with `getAllByText("Failed").length >= 1` assertion.
+
+Files affected:
+
+- `frontend/src/components/dashboard/ControlPlaneHome.tsx` — new; StatsStrip, RecentProjectsGrid, HeaderActions, RouteScaffold wrapper
+- `frontend/src/app/dashboard/page.tsx` — replaced with single import of ControlPlaneHome; removed SpecEditor, ExecutionStatusPanel, useSSE, handleRunCompiler, handleValidateSpec, all slate classes
+- `frontend/src/app/page.tsx` — redesigned landing page; design tokens; compiler control plane identity
+- `frontend/tests/control-plane-home.test.tsx` — new; 19 tests
+- `docs/ai/ACTIVE_CONTEXT.md` — updated
+- `docs/ai/DECISION_LOG.md` — updated
+- `docs/ai/CURRENT_MILESTONE.md` — updated to M6 complete
+
+Risk: Low. The `/dashboard` route continues to exist. Legacy sub-routes (`/dashboard/project/[id]` etc.) are untouched. The adapter and all frozen hooks are used without modification.
+
+Outcome: Lint, build, and all 131 tests (18 files) pass. The Genesis dashboard is now a compiler control plane: heading "Genesis Engine", subtitle "Specification Compiler Platform", stats strip from real data, adapter-backed project cards, honest Run language, "Open Compiler" primary CTA throughout.
+
 ## 2026-06-29 23:55 +05:30
 
 Decision: QA pass (M5.6) found two issues to fix across the Run detail suite; all others confirmed clean.
