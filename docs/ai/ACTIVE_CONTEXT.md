@@ -152,6 +152,22 @@ Milestone 5.1 is complete for the Run Overview only:
 - Did not change backend, API, auth, or compiler behavior.
 - Did not add mock data, fake Run history, or invent backend endpoints.
 
+Milestone 5.6 is complete for the Run Detail Visual QA and Consistency Pass only:
+
+- Inspected all six Run detail components and the shared RouteScaffold. No hardcoded slate colors, no fake data, no invented endpoints, no fabricated run history found anywhere in the suite.
+- Fixed accessibility gap in `RunOverview.tsx`: the 5 surface card "Open" links had no `aria-label`, making all five indistinguishable to screen readers. Added `aria-label={`Open ${surface.label}`}` to each link (e.g., "Open Compiler", "Open Planning Report", "Open Architecture", "Open Workspace", "Open Artifacts").
+- Fixed card title size inconsistency in `RunArchitectureGraph.tsx`: `GraphPanel.CardTitle` used `className="text-sm font-semibold capitalize"` while every other CardTitle across all Run surfaces uses `text-base`. Changed to `text-base capitalize` to match.
+- Updated `run-overview.test.tsx` to query each surface link by its new descriptive accessible name instead of the generic `"Open"` string. The test now uses `getByRole("link", { name: "Open Compiler" })` etc., which is also a more robust assertion.
+- All remaining findings were confirmed clean: no slate colors, no mock data, all "Open Compiler" CTAs use the same class string, all LimitedState copy is consistent, all backend calls use `backendProjectId`, responsive grid breakpoints present throughout. The `runId !== projectId` mismatch guard test remains green.
+- Did not implement new features. Did not modify backend code. Did not change API contracts. Did not add mock data.
+
+Current validation status after Milestone 5.6:
+
+- `npm.cmd run lint` passes.
+- `npm.cmd run build` passes and lists all target/legacy routes.
+- `npm.cmd test` passes: **17 files, 112 tests**.
+- `git diff --check` passes with CRLF warnings only.
+
 Milestone 5.5 is complete for the Artifacts surface only:
 
 - Added `frontend/src/components/run/RunArtifacts.tsx` — pure component (no hooks, no API calls). Receives `RunViewModel`. Shows: `StatusBanner` (from `manifest.build_status` — only when truthy), `HashesCard` (workspace + deployment SHA-256 hashes, hidden when both absent), `ManifestCard` (metadata: project_id, rule_engine_score, build_status; Plugin Versions list; Graph Hashes list), `ArtifactFilesCard` (real files from `run.artifactBundle.files` with download `<a href download>` anchors, or "No artifact files are listed" when empty). Unavailable state (LimitedState + Open Compiler link) when `run.artifactBundle` is absent.
@@ -296,4 +312,4 @@ The root `.gitignore` has unrelated existing changes, including a final literal 
 
 ## Next Task
 
-Stop here until the user explicitly approves the next milestone. All five M5 sub-milestones (Overview, Planning Report, Architecture Graph, Workspace, Artifacts) are complete. Current validation baseline: 17 files / 112 tests.
+Stop here until the user explicitly approves the next milestone. All M5 sub-milestones including the QA pass (M5.6) are complete. Current validation baseline: 17 files / 112 tests.

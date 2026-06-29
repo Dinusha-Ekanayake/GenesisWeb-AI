@@ -56,7 +56,7 @@ function GraphPanel({ graphName, graphData }: { graphName: string; graphData: un
       )}
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm font-semibold capitalize">
+          <CardTitle className="text-base capitalize">
             {formatGraphName(graphName)}
           </CardTitle>
           <CardDescription>Raw graph data from the compiler pipeline.</CardDescription>

@@ -1,6 +1,6 @@
 # Current Milestone
 
-Status: complete — Milestone 5.5 (Artifacts Surface). All M5 sub-milestones are complete.
+Status: complete — Milestone 5.6 (Run Detail Visual QA and Consistency Pass). All M5 sub-milestones are complete.
 
 ## Completed Milestones
 
@@ -18,6 +18,7 @@ Status: complete — Milestone 5.5 (Artifacts Surface). All M5 sub-milestones ar
 - M5.3: Architecture Graph Surface
 - M5.4: Workspace Surface
 - M5.5: Artifacts Surface
+- M5.6: Run Detail Visual QA and Consistency Pass
 
 ## Current Validation Baseline
 
@@ -30,7 +31,7 @@ npm.cmd test
 git diff --check
 ```
 
-Expected baseline (M5.5): lint pass, build pass, **17 files / 112 tests pass**, diff --check pass (CRLF warnings only).
+Expected baseline (M5.6): lint pass, build pass, **17 files / 112 tests pass**, diff --check pass (CRLF warnings only).
 
 ## Stopping Point
 

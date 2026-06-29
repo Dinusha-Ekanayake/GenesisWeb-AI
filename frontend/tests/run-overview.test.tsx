@@ -150,12 +150,12 @@ describe("RunOverview", () => {
   it("surface card links use backendProjectId and run.id, not invented IDs", () => {
     render(<RunOverview run={FULL_RUN} />);
 
-    const links = screen.getAllByRole("link", { name: "Open" });
-    expect(links).toHaveLength(5);
-    links.forEach((link) => {
+    const surfaceLabels = ["Compiler", "Planning Report", "Architecture", "Workspace", "Artifacts"];
+    for (const label of surfaceLabels) {
+      const link = screen.getByRole("link", { name: `Open ${label}` });
       const href = link.getAttribute("href") ?? "";
       expect(href).toMatch(/^\/projects\/project-123\/runs\/project-123\//);
-    });
+    }
   });
 
   it("marks surfaces as Available based on capability flags", () => {

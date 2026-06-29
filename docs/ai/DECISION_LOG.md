@@ -1,5 +1,28 @@
 # Decision Log
 
+## 2026-06-29 23:55 +05:30
+
+Decision: QA pass (M5.6) found two issues to fix across the Run detail suite; all others confirmed clean.
+
+Issue 1 — Accessibility: `RunOverview.SurfaceCard` rendered 5 links with identical visible text "Open" and no `aria-label`. Added `aria-label={`Open ${surface.label}`}` to give each link a unique accessible name ("Open Compiler", "Open Planning Report", "Open Architecture", "Open Workspace", "Open Artifacts"). Requires `run-overview.test.tsx` line 153 to query by the new descriptive name instead of `"Open"`.
+
+Issue 2 — Visual consistency: `RunArchitectureGraph.GraphPanel.CardTitle` used `className="text-sm font-semibold capitalize"` while every other `CardTitle` override across the Run suite uses `text-base`. Changed to `className="text-base capitalize"`.
+
+All other QA findings confirmed clean: no hardcoded slate colors, no fake data, no invented IDs or endpoints, no fabricated run history. All "Open Compiler" CTAs use an identical class string. All LimitedState unavailable copy follows the same pattern. All backend calls use `backendProjectId`. Responsive breakpoints present throughout.
+
+Files affected:
+
+- `frontend/src/components/run/RunOverview.tsx` — added `aria-label` to surface card link
+- `frontend/src/components/run/RunArchitectureGraph.tsx` — fixed CardTitle text-size class
+- `frontend/tests/run-overview.test.tsx` — updated link query to use descriptive accessible names
+- `docs/ai/ACTIVE_CONTEXT.md` — updated
+- `docs/ai/DECISION_LOG.md` — updated
+- `docs/ai/CURRENT_MILESTONE.md` — updated to M5.6 complete
+
+Risk: Low. Both changes are purely additive/corrective with no layout impact. Test count remains 112. No new features, no backend changes.
+
+Outcome: Lint, build, and all 112 tests pass. The Run detail suite is now fully QA-passed.
+
 ## 2026-06-29 23:30 +05:30
 
 Decision: Create `RunArtifacts.tsx` as a new pure component rather than reusing `DeploymentPanel` from the legacy dashboard.

@@ -263,6 +263,7 @@ function SurfaceCard({ surface, run }: { surface: SurfaceDef; run: RunViewModel 
       <CardContent>
         <Link
           href={href}
+          aria-label={`Open ${surface.label}`}
           className="inline-flex items-center rounded-sm border border-border bg-surface-base px-3 py-1.5 text-xs font-medium text-foreground hover:bg-surface-hover"
         >
           Open
