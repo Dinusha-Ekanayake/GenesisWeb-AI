@@ -1,6 +1,6 @@
 # Current Milestone
 
-Status: complete — Milestone 6 (Dashboard / Product Home Redesign).
+Status: complete — Milestone 7 (Command Palette and Keyboard Shortcuts).
 
 ## Completed Milestones
 
@@ -20,6 +20,7 @@ Status: complete — Milestone 6 (Dashboard / Product Home Redesign).
 - M5.5: Artifacts Surface
 - M5.6: Run Detail Visual QA and Consistency Pass
 - M6: Dashboard / Product Home Redesign
+- M7: Command Palette and Keyboard Shortcuts
 
 ## Current Validation Baseline
 
@@ -32,7 +33,7 @@ npm.cmd test
 git diff --check
 ```
 
-Expected baseline (M6): lint pass, build pass, **18 files / 131 tests pass**, diff --check pass (CRLF warnings only).
+Expected baseline (M7): lint pass, build pass, **19 files / 154 tests pass**, diff --check pass (CRLF warnings only).
 
 ## Stopping Point
 

@@ -6,6 +6,7 @@ let pathname = "/projects";
 
 vi.mock("next/navigation", () => ({
   usePathname: () => pathname,
+  useRouter: () => ({ push: vi.fn() }),
 }));
 
 describe("AppShell", () => {

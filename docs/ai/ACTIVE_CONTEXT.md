@@ -327,6 +327,23 @@ The root `.gitignore` has unrelated existing changes, including a final literal 
 - The target UI is Run-centered, while current backend payloads remain project/workspace-shaped.
 - Route migration before adapter design would risk inventing frontend-only assumptions or fake backend concepts.
 
+Milestone 7 is complete for the Command Palette and Keyboard Shortcuts only:
+
+- Created `frontend/src/components/commands/commands.ts` — typed `Command` definition and `COMMANDS` array: 8 navigation commands (Dashboard, Compiler, Projects, Runs, Telemetry, Team, Settings, Search), 2 shell commands (Toggle Context Panel, Toggle Right Panel). Navigate commands carry `{ type: "navigate", href }` action; shell commands carry `{ type: "shell", action }`. Four commands include shortcut hints: G D / G C / G P / G R for route shortcuts, Ctrl \\ and Ctrl P for shell toggles.
+- Created `frontend/src/components/commands/useKeyboardShortcuts.ts` — custom hook accepting `isOpen`, `onOpen`, `onClose`, `paletteInputRef`, `toggleContextPanel`, `toggleRightPanel`, `onNavigate`. Registers one `keydown` listener on `document` via `useEffect`. Handles: Escape (closes palette), Ctrl+K/Cmd+K (toggle palette, blocked when non-palette input is focused), Ctrl+\\ (toggleContextPanel), Ctrl+P (toggleRightPanel), G-sequence (first G sets `awaitingSequence = true` with 1s timeout; d/c/p/r completes to mapped href). No new npm dependency — custom implementation only.
+- Created `frontend/src/components/commands/CommandPalette.tsx` — "use client" modal overlay component. Closed state renders null (no DOM impact). Open state renders: fixed full-screen backdrop (click to close) + palette box (search input + filtered command list + keyboard shortcut badges). Calls `useShell()` for panel toggles, `useRouter()` for navigation, `useKeyboardShortcuts()` for all keyboard handling. Arrow key navigation + Enter execution. Filter is case-insensitive substring match over `cmd.label`.
+- Modified `frontend/src/components/layout/AppShell.tsx` — imported `CommandPalette` and added `<CommandPalette />` as a sibling after the grid `<div>` inside `ShellGrid`, wrapped in a React fragment. This gives it access to `useShell()` (within the existing `ShellProvider` scope) while rendering as a fixed overlay outside the grid flow.
+- Modified `frontend/tests/app-shell.test.tsx` — added `useRouter: () => ({ push: vi.fn() })` to the `next/navigation` mock. Required because `CommandPalette` (now mounted inside `AppShell`) calls `useRouter()`; the existing mock only exported `usePathname`.
+- Created `frontend/tests/command-palette.test.tsx` — 23 tests: palette hidden on mount, opens on Ctrl+K, opens on Cmd+K, closes on Escape, closes on backdrop click, toggles off on second Ctrl+K, shows all 8 navigation commands + 2 shell commands, shortcut hints for G D / G C / G P / G R, filtering by query, no-match message, clicking a command navigates + closes, Open Dashboard navigates to /dashboard, Toggle Context Panel calls hook + closes, Toggle Right Panel calls hook + closes, Ctrl+\\ calls toggleContextPanel without opening palette, Ctrl+P calls toggleRightPanel without opening palette, G D / G C / G P / G R sequences navigate, input guard (Ctrl+K blocked when external input focused), no fake/demo/mock commands.
+- Did not install any new npm dependency (no cmdk, no headless-ui). No backend code changed. No API contracts changed. No compiler behavior changed. No mock data added. No fake search results. Static navigation only.
+
+Current validation status after Milestone 7:
+
+- `npm.cmd run lint` passes.
+- `npm.cmd run build` passes and lists all target/legacy routes.
+- `npm.cmd test` passes: **19 files, 154 tests**.
+- `git diff --check` passes with CRLF warnings only.
+
 ## Next Task
 
-Stop here until the user explicitly approves the next milestone. M6 (Dashboard Redesign) is complete. Current validation baseline: 18 files / 131 tests.
+Stop here until the user explicitly approves the next milestone. M7 (Command Palette and Keyboard Shortcuts) is complete. Current validation baseline: 19 files / 154 tests.

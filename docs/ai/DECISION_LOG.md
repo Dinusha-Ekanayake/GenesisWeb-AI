@@ -1,5 +1,39 @@
 # Decision Log
 
+## 2026-06-30 02:00 +05:30
+
+Decision: Implement the command palette and all keyboard shortcuts as a lightweight custom implementation — no `cmdk` or other palette library added.
+
+Key decisions within M7:
+
+1. **No new dependency.** `cmdk` is not installed and is not needed. The palette is a modal overlay with a plain `<input>` for filtering and a `<ul>` for results. A library would add bundle weight and testing friction for a feature this focused.
+
+2. **Mount `CommandPalette` inside `ShellGrid` (wrapped in a React fragment), not in `ShellProvider` or a separate provider.** This gives the palette natural `useShell()` access (it is a child of `ShellProvider`) without modifying `ShellProvider`'s state shape. The palette renders as `position: fixed`, so it does not affect the grid layout.
+
+3. **Separate `useKeyboardShortcuts.ts` hook.** Keyboard listening logic is extracted into its own file to keep `CommandPalette.tsx` focused on rendering. The hook accepts stable callbacks for `onOpen`, `onClose`, `toggleContextPanel`, `toggleRightPanel`, and `onNavigate`.
+
+4. **G-sequence implemented via `awaitingSequence` state + 1s timeout.** On `g` keypress (not in input, palette closed), `awaitingSequence` becomes `true` and a 1s timeout is set. The next keypress (d/c/p/r) completes the navigation; any other key or timeout cancels. Tests fire both keys synchronously so the timeout never expires before the second key lands.
+
+5. **Input guard: `isNonPaletteInput(paletteInputRef.current)`.** Checks `document.activeElement.tagName === "INPUT" | "TEXTAREA" | isContentEditable` AND `el !== paletteInputRef.current`. Ctrl+K/Cmd+K is blocked when any non-palette input is focused. All other shortcuts (Ctrl+\\, Ctrl+P, G-sequence) are fully blocked when any input is focused.
+
+6. **`app-shell.test.tsx` mock extended with `useRouter`.** `CommandPalette` calls `useRouter()` from `next/navigation`. The existing test only mocked `usePathname`. Added `useRouter: () => ({ push: vi.fn() })` to the mock.
+
+Files affected:
+
+- `frontend/src/components/commands/commands.ts` — new; 10 command definitions (8 navigate, 2 shell)
+- `frontend/src/components/commands/useKeyboardShortcuts.ts` — new; global keydown hook, G-sequence state
+- `frontend/src/components/commands/CommandPalette.tsx` — new; modal overlay, search input, filtered list, shortcut badges
+- `frontend/src/components/layout/AppShell.tsx` — added `<CommandPalette />` inside `ShellGrid`
+- `frontend/tests/command-palette.test.tsx` — new; 23 tests
+- `frontend/tests/app-shell.test.tsx` — added `useRouter` to `next/navigation` mock
+- `docs/ai/ACTIVE_CONTEXT.md` — updated
+- `docs/ai/DECISION_LOG.md` — updated
+- `docs/ai/CURRENT_MILESTONE.md` — updated to M7 complete
+
+Risk: Low. The palette renders null when closed — no layout or performance impact on the existing shell. Ctrl+P conflicts with the browser Print shortcut; `preventDefault()` works inside the app frame but cannot suppress browser-level print dialogs in all contexts. Ctrl+\\ is nonstandard and unambiguous. No backend API calls, no new dependencies, no mock data.
+
+Outcome: Lint, build, and all 154 tests (19 files) pass. The Genesis app shell now has a global command palette (Ctrl+K/Cmd+K), G-sequence route shortcuts (G D/C/P/R), and direct shell panel shortcuts (Ctrl+\\ / Ctrl+P). Static navigation only — no fuzzy backend search, no invented endpoints.
+
 ## 2026-06-30 01:05 +05:30
 
 Decision: Replace the legacy dashboard page with a `ControlPlaneHome` component that positions Genesis as a Specification Compiler control plane, not a chatbot or live-compilation panel.
