@@ -1,37 +1,29 @@
 # Current Milestone
 
-Status: implementation in progress — Milestone 4.
+Status: implementation in progress — Milestone 5.1.
 
 ## Active Scope
 
-Milestone 4 — Compiler Experience.
+Milestone 5.1 — Run Overview only.
 
-Goal: turn the `/compiler` route shell into the real Genesis compiler workspace while preserving all existing backend/API/auth/compiler behavior.
+Goal: turn `/projects/[id]/runs/[runId]` into a real, honest Run Overview page using the existing frontend adapter and existing backend project/workspace-shaped data.
 
 What is being built:
 
-- `frontend/src/components/compiler/CompilerWorkspace.tsx` — new primary compiler component
-- Reuses `SpecEditor`, `ExecutionStatusPanel`, `GenesisAPI`, `useSSE` from existing legacy locations without modification
-- Completion CTA after successful compilation using the real backend project ID from the returned manifest
-- Read-only compilation trace view on the run-specific `/projects/[id]/runs/[runId]/compiler` surface
-- New tests in `frontend/tests/compiler.test.tsx`
+- `frontend/src/components/run/RunOverview.tsx` — new pure component; receives `RunViewModel` from the existing adapter; shows run summary, backend identity, specification summary, and capability-driven surface cards
+- `frontend/tests/run-overview.test.tsx` — new tests for RunOverview and RunRouteScaffold mismatch guard
+- Modifying `frontend/src/components/routes/RunRouteScaffold.tsx` — extract inline Overview into RunOverview; no other surface behavior changes
 
 ## Out Of Scope
 
-- Full Run pages (Architecture, Workspace, Artifacts, Report)
+- Architecture, Workspace, Artifacts, Planning Report surfaces (those are later M5 sub-milestones)
+- Full compiler experience changes (M4 complete)
 - Dashboard redesign
 - Removal of legacy routes
 - Backend, API, auth, or compiler behavior changes
 - New backend endpoints
 - Mock data or fake Run history
 - Git commit, push, staging, or history modification
-
-## Frozen Constraints
-
-- Backend, APIs, authentication, deterministic compiler pipeline, and data contracts are frozen.
-- All backend calls must use `backendProjectId` or `backendWorkspaceId`, not frontend Run IDs.
-- Completion CTA must route only using real backend IDs returned by `GenesisAPI.runCompiler`.
-- The run-specific compiler surface is read-only; it must not start a live compiler workflow.
 
 ## Completed Milestones
 
@@ -43,6 +35,7 @@ What is being built:
 - M2: App shell and navigation architecture
 - M3: Route architecture ((app) route group, target route shells)
 - M3.1: Route/shell QA and navigation hardening
+- M4: Compiler Experience (/compiler global workspace + run-specific read-only trace)
 
 ## Validation Commands
 
@@ -55,8 +48,8 @@ npm.cmd test
 git diff --check
 ```
 
-Expected baseline (M3.1): lint pass, build pass, 11 files / 21 tests pass, diff --check pass (CRLF warnings only).
+Expected baseline (M4): lint pass, build pass, 12 files / 30 tests pass, diff --check pass (CRLF warnings only).
 
 ## Stopping Point
 
-Stop after Milestone 4 compiler experience is implemented and validated.
+Stop after Milestone 5.1 Run Overview is implemented and validated.

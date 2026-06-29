@@ -8,6 +8,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { toRunViewModel } from "@/lib/genesis/adapters";
 import type { RunViewModel } from "@/lib/genesis/view-models";
 import { CapabilityBadge, LimitedState, RouteScaffold } from "./RouteScaffold";
+import { RunOverview } from "@/components/run/RunOverview";
 
 type RunSurface = "overview" | "compiler" | "architecture" | "workspace" | "artifacts" | "report";
 
@@ -53,62 +54,8 @@ function LoadingState() {
   );
 }
 
-function CapabilitySummary({ run }: { run: RunViewModel }) {
-  return (
-    <div className="flex flex-wrap gap-2">
-      <CapabilityBadge enabled={run.capabilities.hasPlanningReport} label="Planning report" />
-      <CapabilityBadge enabled={run.capabilities.hasArchitectureGraphs} label="Architecture" />
-      <CapabilityBadge enabled={run.capabilities.hasWorkspaceFiles} label="Workspace" />
-      <CapabilityBadge enabled={run.capabilities.hasArtifactManifest} label="Artifacts" />
-      <CapabilityBadge enabled={run.capabilities.hasCompilationTrace} label="Trace" />
-    </div>
-  );
-}
-
-function Overview({ run }: { run: RunViewModel }) {
-  const links = [
-    ["Compiler", "compiler"],
-    ["Architecture", "architecture"],
-    ["Workspace", "workspace"],
-    ["Artifacts", "artifacts"],
-    ["Report", "report"],
-  ];
-
-  return (
-    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
-      <Card>
-        <CardHeader>
-          <CardTitle>{run.projectName}</CardTitle>
-          <CardDescription>Latest known Run mapped from backend project `{run.backendProjectId}`.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-wrap items-center gap-3">
-            <StatusBadge status={run.status} />
-            <span className="text-sm text-[color:var(--text-secondary)]">{run.createdAt || "Created date unavailable"}</span>
-          </div>
-          <CapabilitySummary run={run} />
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Run Surfaces</CardTitle>
-          <CardDescription>Route shells only; backend calls still use backend project/workspace IDs.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          {links.map(([label, path]) => (
-            <Link key={path} href={`/projects/${run.backendProjectId}/runs/${run.id}/${path}`} className="block rounded-sm border border-border px-3 py-2 text-sm text-[color:var(--text-secondary)] hover:bg-surface-hover hover:text-foreground">
-              {label}
-            </Link>
-          ))}
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
 function SurfaceContent({ run, surface }: { run: RunViewModel; surface: RunSurface }) {
-  if (surface === "overview") return <Overview run={run} />;
+  if (surface === "overview") return <RunOverview run={run} />;
 
   if (surface === "compiler") {
     const hasTrace =

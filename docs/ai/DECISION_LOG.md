@@ -241,6 +241,25 @@ Risk: Medium. New routes are intentionally skeletal and only expose latest-known
 
 Outcome: Target routes build successfully, shell navigation reaches them, adapter-backed project/run pages render honest limited states, and full frontend validation passes.
 
+## 2026-06-29 19:23 +05:30
+
+Decision: Extract the Run Overview into a dedicated pure component (`RunOverview.tsx`) under `frontend/src/components/run/` rather than keeping it as an inline function inside `RunRouteScaffold.tsx`.
+
+Reason: The overview is now substantial enough to warrant independent structure, testing, and future reuse. As a pure component (no hooks, no API calls), it receives `RunViewModel` directly from the adapter and is trivially testable. Keeping it in RunRouteScaffold would have made the file harder to maintain and impossible to unit-test in isolation.
+
+Files affected:
+
+- `frontend/src/components/run/RunOverview.tsx` — new; shows summary, backend identity, specification, and surface cards
+- `frontend/src/components/routes/RunRouteScaffold.tsx` — removed `Overview` and `CapabilitySummary` inline functions; imports `RunOverview`
+- `frontend/tests/run-overview.test.tsx` — new; 17 tests
+- `docs/ai/ACTIVE_CONTEXT.md` — updated
+- `docs/ai/DECISION_LOG.md` — updated
+- `docs/ai/CURRENT_MILESTONE.md` — updated to M5.1
+
+Risk: Low. The surface-card links on the overview use `run.backendProjectId` and `run.id` consistently. No backend calls are made from RunOverview. The `RunRouteScaffold` mismatch guard (which intercepts `runId !== projectId` before RunOverview is ever rendered) is tested and unchanged.
+
+Outcome: Lint, build, and all 47 tests pass. The Run Overview is a real, useful, adapter-backed page. The `runId !== backendProjectId` mismatch guard correctly redirects to the latest known Run using only real backend IDs.
+
 ## 2026-06-29 19:06 +05:30
 
 Decision: Implement the global `/compiler` page as a real compiler workspace by reusing existing legacy components and hooks directly, without duplication.

@@ -140,6 +140,25 @@ Current validation status after Milestone 3:
 - `npm.cmd test` passes: 11 files, 20 tests.
 - `git diff --check` passes with CRLF warnings only.
 
+Milestone 5.1 is complete for the Run Overview only:
+
+- Added `frontend/src/components/run/RunOverview.tsx` — pure prop-driven component receiving `RunViewModel` from the existing adapter.
+- RunOverview shows: project name + status badge, backend project ID in summary description and explicit Backend Identity card, latest-known-run source label with honest explanation, created date and formatted duration if available, specification summary (spec ID, name, pages count, components count) if `run.specification` is present, and 5 surface cards (Compiler, Planning Report, Architecture, Workspace, Artifacts) with capability-driven Available/Unavailable badges and links to Run subroutes.
+- All subroute links use `run.backendProjectId` and `run.id` — not any invented or URL-derived IDs.
+- Backend Identity card explicitly shows `backendProjectId`, `backendWorkspaceId`, and `run.id` with clear labels and a note that backend API calls must use these IDs.
+- Removed inline `Overview` and `CapabilitySummary` helper functions from `RunRouteScaffold.tsx`; `SurfaceContent` now delegates to `RunOverview`.
+- Added `frontend/tests/run-overview.test.tsx` with 17 tests covering: name/status rendering, source label honesty, backend ID display, duration formatting, specification summary, surface card links, capability badge states, mismatch guard behavior, and absence of fabricated run history.
+- Did not implement Architecture, Workspace, Artifacts, or Report surfaces.
+- Did not change backend, API, auth, or compiler behavior.
+- Did not add mock data, fake Run history, or invent backend endpoints.
+
+Current validation status after Milestone 5.1:
+
+- `npm.cmd run lint` passes.
+- `npm.cmd run build` passes and lists all target/legacy routes.
+- `npm.cmd test` passes: 13 files, 47 tests.
+- `git diff --check` passes with CRLF warnings only.
+
 Milestone 4 is complete for the compiler experience only:
 
 - Implemented `frontend/src/components/compiler/CompilerWorkspace.tsx` as the primary compiler page component.
@@ -195,4 +214,4 @@ The root `.gitignore` has unrelated existing changes, including a final literal 
 
 Stop here until the user explicitly approves the next step.
 
-Current stopping point is Milestone 4 compiler experience. Wait for explicit approval before Milestone 5 (Architecture, Workspace, Artifacts, Report surfaces) or any other product UI work.
+Current stopping point is Milestone 5.1 Run Overview. Wait for explicit approval before Milestone 5.2+ (Architecture, Workspace, Artifacts, Planning Report surfaces) or any other product UI work.
