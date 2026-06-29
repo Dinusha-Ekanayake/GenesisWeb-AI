@@ -1,5 +1,24 @@
 # Decision Log
 
+## 2026-06-29 23:30 +05:30
+
+Decision: Create `RunArtifacts.tsx` as a new pure component rather than reusing `DeploymentPanel` from the legacy dashboard.
+
+Reason: `DeploymentPanel` contains a hardcoded list of 8 invented artifact filenames (`deployment_bundle.zip`, `api_graph.json`, `planning_report.json`, `execution_trace.json`, etc.) that it renders unconditionally regardless of what the backend returns. Reusing it would display fabricated artifact entries — a violation of the no-mock-data constraint. `RunArtifacts` shows only files present in `run.artifactBundle.files` from the adapter, which maps real `artifact_files` records from the backend project response.
+
+Files affected:
+
+- `frontend/src/components/run/RunArtifacts.tsx` — new; StatusBanner (build_status), HashesCard (workspace + deployment SHA-256), ManifestCard (metadata + plugin versions + graph hashes), ArtifactFilesCard (real files with download links, or empty message)
+- `frontend/src/components/routes/RunRouteScaffold.tsx` — replaced old artifacts LimitedState with `<RunArtifacts run={run} />`; removed final Card-family imports (no longer used anywhere in this file)
+- `frontend/tests/run-artifacts.test.tsx` — new; 17 tests using `@testing-library/react` (`fireEvent` not needed — pure component); `getByText("SUCCESS")` ambiguity fixed with `getAllByText` after "SUCCESS" was found in StatusBadge, StatusBanner, and ManifestCard simultaneously
+- `docs/ai/ACTIVE_CONTEXT.md` — updated
+- `docs/ai/DECISION_LOG.md` — updated
+- `docs/ai/CURRENT_MILESTONE.md` — updated to M5.5 complete
+
+Risk: Low. `RunArtifacts` is a pure component (no hooks). `buildArtifactUrl` uses `process.env.NEXT_PUBLIC_API_URL` with a localhost fallback — the same pattern used elsewhere in the frontend for direct API URLs. Download links are `<a href download>` anchors, not fetch calls, so no CORS or auth considerations apply at render time.
+
+Outcome: Lint, build, and all 112 tests (17 files) pass. The `/projects/[id]/runs/[runId]/artifacts` surface renders the real adapter-sourced artifact bundle: cryptographic hashes, full deployment manifest, plugin versions, graph hashes, and real download links per file. No backend, API, auth, or compiler behavior was changed. No mock data or invented endpoints were added.
+
 ## 2026-06-29 16:48 +05:30
 
 Decision: Use semantic CSS variables as the design token source of truth, with Tailwind consuming those variables.

@@ -1,31 +1,6 @@
 # Current Milestone
 
-Status: complete — Milestone 5.4.
-
-## Active Scope
-
-Milestone 5.2 — Planning Report Surface only.
-
-Goal: turn `/projects/[id]/runs/[runId]/report` into a useful Planning Report page using only real backend-backed data already available through the adapter.
-
-What is being built:
-
-- `frontend/src/components/run/RunPlanningReport.tsx` — new pure component; receives `RunViewModel` from the adapter; shows rule validation status, integrity score, planning duration, 8 metric tiles, optional rule coverage, failed rules, assumptions, rule execution trace, and graph hashes
-- `frontend/tests/run-planning-report.test.tsx` — new tests
-- Modifying `frontend/src/components/routes/RunRouteScaffold.tsx` — replace the old fallthrough report card with an explicit `report` surface branch using `RunPlanningReport`
-
-Reuse decision: A new `RunPlanningReport` component is created rather than reusing `PlanningReportViewer`. `PlanningReportViewer` uses hardcoded slate/dark colors inconsistent with the design token system. The legacy component remains unchanged.
-
-## Out Of Scope
-
-- Architecture, Workspace, Artifacts surfaces (later M5 sub-milestones)
-- Full compiler changes
-- Dashboard redesign
-- Removal of legacy routes
-- Backend, API, auth, or compiler behavior changes
-- New backend endpoints
-- Mock data or fake planning report data
-- Git commit, push, staging, or history modification
+Status: complete — Milestone 5.5 (Artifacts Surface). All M5 sub-milestones are complete.
 
 ## Completed Milestones
 
@@ -39,8 +14,12 @@ Reuse decision: A new `RunPlanningReport` component is created rather than reusi
 - M3.1: Route/shell QA
 - M4: Compiler Experience
 - M5.1: Run Overview
+- M5.2: Planning Report Surface
+- M5.3: Architecture Graph Surface
+- M5.4: Workspace Surface
+- M5.5: Artifacts Surface
 
-## Validation Commands
+## Current Validation Baseline
 
 From `frontend/`:
 
@@ -51,8 +30,8 @@ npm.cmd test
 git diff --check
 ```
 
-Expected baseline (M5.1): lint pass, build pass, 13 files / 47 tests pass, diff --check pass (CRLF warnings only).
+Expected baseline (M5.5): lint pass, build pass, **17 files / 112 tests pass**, diff --check pass (CRLF warnings only).
 
 ## Stopping Point
 
-Stop after Milestone 5.2 Planning Report is implemented and validated.
+Stop here until the user explicitly approves the next milestone.

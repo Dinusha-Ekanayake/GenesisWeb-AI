@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { CheckCircle2, Loader2, ServerCrash } from "lucide-react";
 import { useProject } from "@/app/dashboard/lib/hooks";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { toRunViewModel } from "@/lib/genesis/adapters";
 import type { RunViewModel } from "@/lib/genesis/view-models";
@@ -11,6 +10,7 @@ import { LimitedState, RouteScaffold } from "./RouteScaffold";
 import { RunOverview } from "@/components/run/RunOverview";
 import { RunArchitectureGraph } from "@/components/run/RunArchitectureGraph";
 import { RunPlanningReport } from "@/components/run/RunPlanningReport";
+import { RunArtifacts } from "@/components/run/RunArtifacts";
 import { RunWorkspace } from "@/components/run/RunWorkspace";
 
 type RunSurface = "overview" | "compiler" | "architecture" | "workspace" | "artifacts" | "report";
@@ -146,24 +146,7 @@ function SurfaceContent({ run, surface }: { run: RunViewModel; surface: RunSurfa
 
   if (surface === "workspace") return <RunWorkspace run={run} />;
 
-  if (surface === "artifacts") {
-    if (!run.artifactBundle) {
-      return <LimitedState title="No artifact bundle available" description="The current backend project record does not include artifact manifest or file data." />;
-    }
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Artifact Bundle</CardTitle>
-          <CardDescription>Download behavior remains on existing backend project artifact endpoints.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-2 text-sm text-[color:var(--text-secondary)]">
-          <p>Workspace hash: <code>{run.artifactBundle.workspaceHash || "Unavailable"}</code></p>
-          <p>Deployment hash: <code>{run.artifactBundle.deploymentHash || "Unavailable"}</code></p>
-          <p>Files: {run.artifactBundle.files.length}</p>
-        </CardContent>
-      </Card>
-    );
-  }
+  if (surface === "artifacts") return <RunArtifacts run={run} />;
 
   return <RunPlanningReport run={run} />;
 }

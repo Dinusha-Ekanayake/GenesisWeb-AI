@@ -152,6 +152,24 @@ Milestone 5.1 is complete for the Run Overview only:
 - Did not change backend, API, auth, or compiler behavior.
 - Did not add mock data, fake Run history, or invent backend endpoints.
 
+Milestone 5.5 is complete for the Artifacts surface only:
+
+- Added `frontend/src/components/run/RunArtifacts.tsx` — pure component (no hooks, no API calls). Receives `RunViewModel`. Shows: `StatusBanner` (from `manifest.build_status` — only when truthy), `HashesCard` (workspace + deployment SHA-256 hashes, hidden when both absent), `ManifestCard` (metadata: project_id, rule_engine_score, build_status; Plugin Versions list; Graph Hashes list), `ArtifactFilesCard` (real files from `run.artifactBundle.files` with download `<a href download>` anchors, or "No artifact files are listed" when empty). Unavailable state (LimitedState + Open Compiler link) when `run.artifactBundle` is absent.
+- Download links are built via `buildArtifactUrl(file)` using `process.env.NEXT_PUBLIC_API_URL` and `file.backendProjectId` from the adapter — never a URL-derived or invented ID. The `download` attribute is set to `file.name`.
+- Decision: did NOT reuse `DeploymentPanel` from the legacy dashboard. `DeploymentPanel` has a hardcoded list of 8 invented artifact filenames (`deployment_bundle.zip`, `api_graph.json`, `planning_report.json`, etc.) regardless of actual backend data. `RunArtifacts` shows only files returned by the backend adapter.
+- Updated `frontend/src/components/routes/RunRouteScaffold.tsx` — replaced the old artifacts LimitedState with `<RunArtifacts run={run} />`. All Card-related imports were removed from `RunRouteScaffold` (the last card usage was replaced). Import list now includes: RunArchitectureGraph, RunPlanningReport, RunArtifacts, RunWorkspace, RunOverview.
+- Added `frontend/tests/run-artifacts.test.tsx` with 17 tests: unavailable state + no artifact content, banner from real manifest data, workspace/deployment hashes, hashes-hidden-when-absent, hashes-only bundle without manifest, manifest metadata (project_id, rule_engine_score), plugin versions, graph hashes, real file names, no invented file names, download href uses backendProjectId, download attribute set to filename, no-files message, no download links when empty, and 2 RunRouteScaffold integration tests (with/without manifest).
+- Two test failures were fixed during development: `getByText("SUCCESS")` matched multiple elements (StatusBadge in the RunRouteScaffold header, StatusBanner, and ManifestCard metadata row). Fixed with `getAllByText("SUCCESS").length >= N` assertions.
+- Did not change backend, API, auth, or compiler behavior.
+- Did not add mock data, fake artifact files, fake download links, or invent backend endpoints.
+
+Current validation status after Milestone 5.5:
+
+- `npm.cmd run lint` passes.
+- `npm.cmd run build` passes and lists all target/legacy routes.
+- `npm.cmd test` passes: **17 files, 112 tests**.
+- `git diff --check` passes with CRLF warnings only.
+
 Milestone 5.4 is complete for the Workspace surface only:
 
 - Added `frontend/src/components/run/RunWorkspace.tsx` — component with hooks: `useProjectWorkspace(run.backendProjectId)` (file tree) and delegates `useProjectFile(run.backendProjectId, path)` to a `FileViewer` child. The `backendProjectId` is always used for API calls — never the URL `runId`. Shows: loading spinner, LimitedState when workspace API returns empty/error (+ Open Compiler link), file tree sidebar with expandable directories via `FileTreeNode` (recursive, each directory manages its own `useState(open)`), file content `<pre>` block in the right panel. No Monaco Editor — consistent with other M5 surfaces using `<pre>` for content.
@@ -278,6 +296,4 @@ The root `.gitignore` has unrelated existing changes, including a final literal 
 
 ## Next Task
 
-Stop here until the user explicitly approves the next step.
-
-Current stopping point is Milestone 5.4 Workspace. Wait for explicit approval before Milestone 5.5+ (Artifacts surface) or any other product UI work.
+Stop here until the user explicitly approves the next milestone. All five M5 sub-milestones (Overview, Planning Report, Architecture Graph, Workspace, Artifacts) are complete. Current validation baseline: 17 files / 112 tests.
