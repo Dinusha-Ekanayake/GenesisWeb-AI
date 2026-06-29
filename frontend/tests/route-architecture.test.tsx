@@ -11,6 +11,12 @@ vi.mock("../src/app/dashboard/lib/hooks", () => ({
   useProjects: () => useProjectsMock(),
 }));
 
+// CompilerWorkspace has its own test suite in compiler.test.tsx.
+// Mock it here so route-architecture tests stay focused on route existence.
+vi.mock("../src/components/compiler/CompilerWorkspace", () => ({
+  CompilerWorkspace: () => <div data-testid="compiler-workspace">Compiler Workspace</div>,
+}));
+
 const project: ProjectData = {
   id: "project-1",
   title: "Backend Project",
@@ -49,10 +55,10 @@ describe("target route architecture", () => {
     expect(screen.getByRole("link", { name: /Spec Project/i })).toHaveAttribute("href", "/projects/project-1/runs/project-1");
   });
 
-  it("renders future route shells as honest limited states", () => {
+  it("renders the compiler page with the compiler workspace (not a limited state)", () => {
     render(<CompilerPage />);
 
-    expect(screen.getByRole("heading", { name: "Compiler" })).toBeInTheDocument();
-    expect(screen.getByText(/No new compiler UI or backend endpoints/i)).toBeInTheDocument();
+    expect(screen.getByTestId("compiler-workspace")).toBeInTheDocument();
+    expect(screen.queryByText(/No new compiler UI/i)).not.toBeInTheDocument();
   });
 });

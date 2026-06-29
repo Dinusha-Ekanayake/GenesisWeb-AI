@@ -1,71 +1,62 @@
 # Current Milestone
 
-Status: implementation paused pending explicit user approval.
-
-Milestone 1 is complete. The next recommended milestone is Milestone 1.5, but it is not approved yet.
+Status: implementation in progress — Milestone 4.
 
 ## Active Scope
 
-Only documentation/handoff maintenance is active right now.
+Milestone 4 — Compiler Experience.
 
-The approved implementation work completed in Milestone 1 was:
+Goal: turn the `/compiler` route shell into the real Genesis compiler workspace while preserving all existing backend/API/auth/compiler behavior.
 
-- Design system foundation
-- Semantic CSS tokens
-- Inter and JetBrains Mono integration
-- Tailwind semantic token consumption
-- Duplicate Tailwind config cleanup
-- Shared primitive additions or improvements
-- Frontend adapter planning note
+What is being built:
 
-## Out Of Scope Until Approved
+- `frontend/src/components/compiler/CompilerWorkspace.tsx` — new primary compiler component
+- Reuses `SpecEditor`, `ExecutionStatusPanel`, `GenesisAPI`, `useSSE` from existing legacy locations without modification
+- Completion CTA after successful compilation using the real backend project ID from the returned manifest
+- Read-only compilation trace view on the run-specific `/projects/[id]/runs/[runId]/compiler` surface
+- New tests in `frontend/tests/compiler.test.tsx`
 
-- Milestone 1.5 adapter implementation
-- App shell and navigation
-- Route architecture changes
-- `/dashboard` migration
-- Compiler experience redesign
-- Run-level screens
-- Command palette
-- Keyboard shortcuts
-- Backend changes
-- New endpoints
-- Mock data
+## Out Of Scope
+
+- Full Run pages (Architecture, Workspace, Artifacts, Report)
+- Dashboard redesign
+- Removal of legacy routes
+- Backend, API, auth, or compiler behavior changes
+- New backend endpoints
+- Mock data or fake Run history
 - Git commit, push, staging, or history modification
 
-## Files Likely Affected Next
+## Frozen Constraints
 
-For Milestone 1.5 documentation/design only:
+- Backend, APIs, authentication, deterministic compiler pipeline, and data contracts are frozen.
+- All backend calls must use `backendProjectId` or `backendWorkspaceId`, not frontend Run IDs.
+- Completion CTA must route only using real backend IDs returned by `GenesisAPI.runCompiler`.
+- The run-specific compiler surface is read-only; it must not start a live compiler workflow.
 
-- `docs/ai/FRONTEND_ADAPTER_PLAN.md`
-- `docs/FrontendAdapterDesign.md`
-- possibly a new design-only frontend type note if explicitly approved
+## Completed Milestones
 
-For Milestone 1.5 implementation, only if separately approved:
-
-- `frontend/src/app/dashboard/lib/view-models.ts`
-- `frontend/src/app/dashboard/lib/adapters.ts`
+- M1: Design system foundation
+- M1.1: Validation tooling stabilization
+- M1.2: Build/test baseline fixed
+- M1.3: .gitignore hygiene
+- M1.5: Frontend adapter (view-model contracts, mapping functions, adapter tests)
+- M2: App shell and navigation architecture
+- M3: Route architecture ((app) route group, target route shells)
+- M3.1: Route/shell QA and navigation hardening
 
 ## Validation Commands
 
-Use Windows-safe commands from `frontend/`:
+From `frontend/`:
 
 ```powershell
+npm.cmd run lint
 npm.cmd run build
 npm.cmd test
-```
-
-Known current validation issues:
-
-- Build reaches app compilation but fails type validation because `@playwright/test` is missing locally.
-- Tests fail because `vitest` is missing locally.
-
-Repository-wide whitespace check:
-
-```powershell
 git diff --check
 ```
 
+Expected baseline (M3.1): lint pass, build pass, 11 files / 21 tests pass, diff --check pass (CRLF warnings only).
+
 ## Stopping Point
 
-Stop after creating or updating these AI handoff documents. Do not continue implementation until the user approves the next milestone.
+Stop after Milestone 4 compiler experience is implemented and validated.

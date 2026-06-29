@@ -140,6 +140,28 @@ Current validation status after Milestone 3:
 - `npm.cmd test` passes: 11 files, 20 tests.
 - `git diff --check` passes with CRLF warnings only.
 
+Milestone 4 is complete for the compiler experience only:
+
+- Implemented `frontend/src/components/compiler/CompilerWorkspace.tsx` as the primary compiler page component.
+- Reused `SpecEditor`, `ExecutionStatusPanel`, `GenesisAPI`, and `useSSE` directly from their legacy locations without modification.
+- `useSSE(activeProjectId)` subscribes to live backend events once `spec.project_id` is set before awaiting `runCompiler`, matching the legacy dashboard pattern so events stream during compilation.
+- Completion CTA derives the navigation target from `compilationResult.manifest.project_id` (real backend ID returned by the API) mapped to `/projects/{id}/runs/{id}` using the latest-known-run identity rule.
+- Run-specific `/projects/[id]/runs/[runId]/compiler` surface updated: shows read-only compilation trace from `run.compilationTrace` (adapter-mapped from `project.execution_trace`) when available; falls back to a LimitedState with a link to `/compiler`. No live compiler workflow, no SSE subscription, no submit button on the run-specific surface.
+- Added `frontend/tests/compiler.test.tsx` with 9 tests covering: idle state, compile dispatch, completion CTA using real backend IDs, no fake Run history, read-only run-specific surface, and no live-workflow embedding.
+- Updated `frontend/tests/route-architecture.test.tsx` to reflect that `/compiler` is no longer a LimitedState; CompilerWorkspace is mocked in that file to keep route-architecture tests focused on route existence only.
+- Did not implement Architecture, Workspace, Artifacts, or Report pages.
+- Did not redesign `/dashboard`.
+- Did not remove legacy routes.
+- Did not change backend, API, auth, or compiler behavior.
+- Did not add mock data, fake Run history, or invent backend endpoints.
+
+Current validation status after Milestone 4:
+
+- `npm.cmd run lint` passes.
+- `npm.cmd run build` passes and lists all target/legacy routes.
+- `npm.cmd test` passes: 12 files, 30 tests.
+- `git diff --check` passes with CRLF warnings only.
+
 Milestone 3.1 is complete for route/shell QA and navigation hardening only:
 
 - Inspected all target route shells and legacy compatibility routes.
@@ -173,4 +195,4 @@ The root `.gitignore` has unrelated existing changes, including a final literal 
 
 Stop here until the user explicitly approves the next step.
 
-Current stopping point is Milestone 3.1 route/shell QA verified. Wait for explicit approval before Milestone 4 compiler experience, dashboard redesign, Run detail implementation, or deeper product UI work.
+Current stopping point is Milestone 4 compiler experience. Wait for explicit approval before Milestone 5 (Architecture, Workspace, Artifacts, Report surfaces) or any other product UI work.

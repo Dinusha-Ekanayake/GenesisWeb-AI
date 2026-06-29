@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Loader2 } from "lucide-react";
+import { CheckCircle2, Loader2, ServerCrash } from "lucide-react";
 import { useProject } from "@/app/dashboard/lib/hooks";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -111,11 +111,83 @@ function SurfaceContent({ run, surface }: { run: RunViewModel; surface: RunSurfa
   if (surface === "overview") return <Overview run={run} />;
 
   if (surface === "compiler") {
+    const hasTrace =
+      run.capabilities.hasCompilationTrace &&
+      run.compilationTrace &&
+      run.compilationTrace.length > 0;
+
+    if (hasTrace) {
+      return (
+        <div className="space-y-4">
+          <div className="flex flex-col gap-2 rounded-lg border border-border bg-surface-raised px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-[color:var(--text-secondary)]">
+              Read-only compilation trace from{" "}
+              <code className="font-mono text-xs">{run.backendProjectId}</code>.
+              Backend calls use this project ID, not the URL run ID.
+            </p>
+            <Link
+              href="/compiler"
+              className="mt-2 inline-flex shrink-0 items-center gap-1.5 rounded-sm border border-border bg-surface-base px-3 py-1.5 text-xs font-medium text-foreground hover:bg-surface-hover sm:mt-0"
+            >
+              New compilation
+            </Link>
+          </div>
+          <div className="relative ml-3 space-y-6 border-l-2 border-border">
+            {run.compilationTrace!.map((trace, idx) => {
+              const isError =
+                trace.event.toLowerCase().includes("fail") ||
+                (trace.details &&
+                  typeof trace.details === "object" &&
+                  trace.details.status === "failed");
+              return (
+                <div key={idx} className="relative pl-8">
+                  <span className="absolute -left-[11px] top-0.5 rounded-full bg-surface-base">
+                    {isError ? (
+                      <ServerCrash className="h-5 w-5 text-[color:var(--error)]" aria-hidden="true" />
+                    ) : (
+                      <CheckCircle2 className="h-5 w-5 text-accent" aria-hidden="true" />
+                    )}
+                  </span>
+                  <p
+                    className={`text-sm font-semibold ${
+                      isError ? "text-[color:var(--error)]" : "text-foreground"
+                    }`}
+                  >
+                    {trace.event.replace(/([A-Z])/g, " $1").trim()}
+                  </p>
+                  <p className="mt-1 font-mono text-xs text-[color:var(--text-secondary)]">
+                    {new Date(trace.timestamp).toLocaleTimeString([], {
+                      hour12: false,
+                      fractionalSecondDigits: 3,
+                    })}
+                  </p>
+                  {trace.details &&
+                    typeof trace.details === "object" &&
+                    Object.keys(trace.details).length > 0 && (
+                      <pre className="mt-2 overflow-x-auto rounded-md border border-border bg-surface-raised p-3 font-mono text-xs text-[color:var(--text-secondary)]">
+                        {JSON.stringify(trace.details, null, 2)}
+                      </pre>
+                    )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+
     return (
       <LimitedState
-        title="Compiler page not implemented yet"
-        description="Use the existing dashboard compiler until the compiler experience milestone is approved."
-        action={<Link href="/dashboard" className="inline-flex rounded-sm bg-accent px-3 py-2 text-sm font-medium text-accent-foreground hover:bg-accent-hover">Open dashboard</Link>}
+        title="No compilation trace available"
+        description="The current backend project record does not include a stored compilation trace. Start a new compilation from the Compiler workspace."
+        action={
+          <Link
+            href="/compiler"
+            className="inline-flex rounded-sm bg-accent px-3 py-2 text-sm font-medium text-accent-foreground hover:bg-accent-hover"
+          >
+            Open Compiler
+          </Link>
+        }
       />
     );
   }

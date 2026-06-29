@@ -241,6 +241,27 @@ Risk: Medium. New routes are intentionally skeletal and only expose latest-known
 
 Outcome: Target routes build successfully, shell navigation reaches them, adapter-backed project/run pages render honest limited states, and full frontend validation passes.
 
+## 2026-06-29 19:06 +05:30
+
+Decision: Implement the global `/compiler` page as a real compiler workspace by reusing existing legacy components and hooks directly, without duplication.
+
+Reason: The legacy dashboard already has working `SpecEditor`, `ExecutionStatusPanel`, `GenesisAPI.runCompiler`, `GenesisAPI.validateSpec`, and `useSSE` implementations. Copying or re-implementing them would diverge from the frozen backend API contract and create maintenance risk.
+
+Files affected:
+
+- `frontend/src/components/compiler/CompilerWorkspace.tsx` — new; owns compile state, SSE subscription, completion CTA
+- `frontend/src/app/(app)/compiler/page.tsx` — replaced LimitedState with CompilerWorkspace
+- `frontend/src/components/routes/RunRouteScaffold.tsx` — compiler surface now shows read-only trace or limited state; links to /compiler for new compilations
+- `frontend/tests/compiler.test.tsx` — new; 9 tests for workspace behavior, API dispatch, and run-specific surface
+- `frontend/tests/route-architecture.test.tsx` — updated compiler test; CompilerWorkspace mocked so route-architecture file stays focused on route existence
+- `docs/ai/ACTIVE_CONTEXT.md` — updated
+- `docs/ai/DECISION_LOG.md` — updated
+- `docs/ai/CURRENT_MILESTONE.md` — updated to M4
+
+Risk: Medium-low. `SpecEditor` carries a hardcoded DEFAULT_SPEC (`project_id: "demo_project_001"`). This is the user's own spec starting point, not fake backend data. Future milestones may want to remove or make the default editable, but it does not violate the no-mock-data constraint. The completion CTA routes only when `manifest.project_id` is a non-empty string from the real API response; an empty or missing project_id suppresses the link.
+
+Outcome: Lint, build, and all 30 tests pass. The `/compiler` route is the live Genesis Engine compiler workspace. The run-specific compiler surface remains read-only. No backend, API, auth, or compiler behavior was changed.
+
 ## 2026-06-29 17:50 +05:30
 
 Decision: Harden route/shell navigation without adding product functionality.
