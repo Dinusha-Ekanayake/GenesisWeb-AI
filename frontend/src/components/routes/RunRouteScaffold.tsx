@@ -9,6 +9,7 @@ import { toRunViewModel } from "@/lib/genesis/adapters";
 import type { RunViewModel } from "@/lib/genesis/view-models";
 import { CapabilityBadge, LimitedState, RouteScaffold } from "./RouteScaffold";
 import { RunOverview } from "@/components/run/RunOverview";
+import { RunPlanningReport } from "@/components/run/RunPlanningReport";
 
 type RunSurface = "overview" | "compiler" | "architecture" | "workspace" | "artifacts" | "report";
 
@@ -185,24 +186,7 @@ function SurfaceContent({ run, surface }: { run: RunViewModel; surface: RunSurfa
     );
   }
 
-  if (!run.planningReport) {
-    return <LimitedState title="No planning report available" description="The current backend project record does not include a planning report." />;
-  }
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Planning Report Summary</CardTitle>
-        <CardDescription>Detailed report rendering is deferred to a later product milestone.</CardDescription>
-      </CardHeader>
-      <CardContent className="grid gap-3 text-sm text-[color:var(--text-secondary)] sm:grid-cols-2 lg:grid-cols-4">
-        <p>Features: {run.planningReport.total_features}</p>
-        <p>Pages: {run.planningReport.total_pages}</p>
-        <p>APIs: {run.planningReport.total_apis}</p>
-        <p>Integrity: {run.planningReport.graph_integrity_score}</p>
-      </CardContent>
-    </Card>
-  );
+  return <RunPlanningReport run={run} />;
 }
 
 export function RunRouteScaffold({ projectId, runId, surface }: RunRouteScaffoldProps) {

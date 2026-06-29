@@ -241,6 +241,25 @@ Risk: Medium. New routes are intentionally skeletal and only expose latest-known
 
 Outcome: Target routes build successfully, shell navigation reaches them, adapter-backed project/run pages render honest limited states, and full frontend validation passes.
 
+## 2026-06-29 19:44 +05:30
+
+Decision: Create `RunPlanningReport.tsx` as a new pure component rather than reusing `PlanningReportViewer` from the legacy dashboard.
+
+Reason: `PlanningReportViewer` uses hardcoded Tailwind slate/dark color classes (`bg-slate-900`, `border-slate-800`, etc.) that are inconsistent with the design token system established in Milestone 1. A new component allows the planning report surface to use `bg-surface-raised`, `border-border`, `text-success`, `text-[color:var(--error)]`, and the rest of the semantic token set — matching the Run Overview and other M5 surfaces. The legacy component remains unchanged and continues to be used by the dashboard project detail page.
+
+Files affected:
+
+- `frontend/src/components/run/RunPlanningReport.tsx` — new; shows status header, 8-tile metrics grid, optional rule coverage, failed rules, assumptions, rule execution trace with PASS/FAIL/WARN badges, and graph hashes
+- `frontend/src/components/routes/RunRouteScaffold.tsx` — replaced minimal 4-field fallthrough card with explicit `report` surface branch using `RunPlanningReport`
+- `frontend/tests/run-planning-report.test.tsx` — new; 19 tests covering all sections, unavailable state, optional sections, status badges, and RunRouteScaffold integration
+- `docs/ai/ACTIVE_CONTEXT.md` — updated
+- `docs/ai/DECISION_LOG.md` — updated
+- `docs/ai/CURRENT_MILESTONE.md` — updated
+
+Risk: Low. `RunPlanningReport` is a pure component (no hooks, no API calls). All optional fields (`rule_coverage`, `failed_rules`, `assumptions`, `graph_hashes`) are guarded before rendering. The `rule_coverage` field is typed as optional in `PlanningReport`; a missing `--warning` CSS variable would degrade gracefully to the default text color.
+
+Outcome: Lint, build, and all 66 tests pass. The `/projects/[id]/runs/[runId]/report` surface renders the full backend-sourced planning report — rule validation status, integrity score, planning duration, all 8 metrics, rule execution trace with per-rule PASS/FAIL/WARN status, rule coverage, assumptions, failed rules, and graph hashes. No backend, API, auth, or compiler behavior was changed. No mock data or fake endpoints were added.
+
 ## 2026-06-29 19:23 +05:30
 
 Decision: Extract the Run Overview into a dedicated pure component (`RunOverview.tsx`) under `frontend/src/components/run/` rather than keeping it as an inline function inside `RunRouteScaffold.tsx`.

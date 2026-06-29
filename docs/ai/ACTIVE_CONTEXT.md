@@ -152,6 +152,36 @@ Milestone 5.1 is complete for the Run Overview only:
 - Did not change backend, API, auth, or compiler behavior.
 - Did not add mock data, fake Run history, or invent backend endpoints.
 
+Milestone 5.2 is complete for the Planning Report surface only:
+
+- Added `frontend/src/components/run/RunPlanningReport.tsx` — pure prop-driven component receiving `RunViewModel` from the existing adapter. Shows: status header (rule_validation_status, integrity score, planning_duration_ms, error/warning counts), 8-tile metrics grid (features, pages, APIs, entities, components, dependencies, errors, warnings), optional rule coverage card (api_coverage, db_coverage, ui_coverage, overall_score), failed rules list (only when failed_rules is non-empty), planning assumptions list (only when non-empty), full rule execution trace with PASS/FAIL/WARN status badges per rule and inline context JSON, and graph/workspace hashes.
+- Updated `frontend/src/components/routes/RunRouteScaffold.tsx` — replaced the old fallthrough minimal planning report card with an explicit `if (surface === "report") return <RunPlanningReport run={run} />;` branch. Removed the deferred-milestone placeholder card that showed only 4 fields.
+- `RunPlanningReport` handles absent report with LimitedState "Planning report not available" + link to `/compiler`. All optional sections (rule_coverage, failed_rules, assumptions, graph_hashes) are silently omitted when empty or absent.
+- Decision: did not reuse `PlanningReportViewer` from the legacy dashboard. Reason: it uses hardcoded slate/dark Tailwind colors inconsistent with the design token system. Legacy component is unchanged.
+- Added `frontend/tests/run-planning-report.test.tsx` with 19 tests: unavailable state, success/failed status, integrity score, duration format, all 8 metric tiles, rule coverage present/absent, assumptions present/absent, rule trace entries with status badges, trace messages, graph hashes, failed rules present/absent, FAIL badge, no invented data when absent, empty trace message, plus 2 RunRouteScaffold integration tests (report surface with and without backend planning_report).
+- Did not implement Architecture, Workspace, or Artifacts surfaces.
+- Did not change backend, API, auth, or compiler behavior.
+- Did not add mock data, fake Run history, or invent backend endpoints.
+
+Current validation status after Milestone 5.2:
+
+- `npm.cmd run lint` passes.
+- `npm.cmd run build` passes and lists all target/legacy routes.
+- `npm.cmd test` passes: 14 files, 66 tests.
+- `git diff --check` passes with CRLF warnings only.
+
+Milestone 5.1 is complete for the Run Overview only:
+
+- Added `frontend/src/components/run/RunOverview.tsx` — pure prop-driven component receiving `RunViewModel` from the existing adapter.
+- RunOverview shows: project name + status badge, backend project ID in summary description and explicit Backend Identity card, latest-known-run source label with honest explanation, created date and formatted duration if available, specification summary (spec ID, name, pages count, components count) if `run.specification` is present, and 5 surface cards (Compiler, Planning Report, Architecture, Workspace, Artifacts) with capability-driven Available/Unavailable badges and links to Run subroutes.
+- All subroute links use `run.backendProjectId` and `run.id` — not any invented or URL-derived IDs.
+- Backend Identity card explicitly shows `backendProjectId`, `backendWorkspaceId`, and `run.id` with clear labels and a note that backend API calls must use these IDs.
+- Removed inline `Overview` and `CapabilitySummary` helper functions from `RunRouteScaffold.tsx`; `SurfaceContent` now delegates to `RunOverview`.
+- Added `frontend/tests/run-overview.test.tsx` with 17 tests covering: name/status rendering, source label honesty, backend ID display, duration formatting, specification summary, surface card links, capability badge states, mismatch guard behavior, and absence of fabricated run history.
+- Did not implement Architecture, Workspace, Artifacts, or Report surfaces.
+- Did not change backend, API, auth, or compiler behavior.
+- Did not add mock data, fake Run history, or invent backend endpoints.
+
 Current validation status after Milestone 5.1:
 
 - `npm.cmd run lint` passes.
@@ -214,4 +244,4 @@ The root `.gitignore` has unrelated existing changes, including a final literal 
 
 Stop here until the user explicitly approves the next step.
 
-Current stopping point is Milestone 5.1 Run Overview. Wait for explicit approval before Milestone 5.2+ (Architecture, Workspace, Artifacts, Planning Report surfaces) or any other product UI work.
+Current stopping point is Milestone 5.2 Planning Report. Wait for explicit approval before Milestone 5.3+ (Architecture, Workspace, Artifacts surfaces) or any other product UI work.
