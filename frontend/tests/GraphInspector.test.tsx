@@ -16,6 +16,6 @@ describe('GraphInspector', () => {
         <GraphInspector projectId="test" />
       </QueryClientProvider>
     );
-    expect(screen.getByText(/Tree/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Tree/i })).toBeInTheDocument();
   });
 });

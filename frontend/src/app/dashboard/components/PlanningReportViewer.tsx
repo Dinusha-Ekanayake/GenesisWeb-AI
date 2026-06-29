@@ -4,11 +4,17 @@ import { PlanningReport } from "../types/genesis";
 import { CheckCircle2, AlertCircle, XCircle } from "lucide-react";
 
 interface PlanningReportViewerProps {
-  report: PlanningReport;
+  report?: PlanningReport | null;
 }
 
 export default function PlanningReportViewer({ report }: PlanningReportViewerProps) {
-  if (!report) return null;
+  if (!report) {
+    return (
+      <div className="text-slate-500 flex flex-col items-center justify-center p-12 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800">
+        <p>No planning report available.</p>
+      </div>
+    );
+  }
 
   const isSuccess = report.rule_validation_status === "SUCCESS";
 

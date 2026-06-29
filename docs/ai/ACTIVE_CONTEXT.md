@@ -1,0 +1,176 @@
+# Active Context
+
+Last updated: 2026-06-29 17:50 +05:30
+
+This repository is the Genesis Engine implementation. The frontend is being migrated from prototype UI toward the v3.0 specification. The product is a Specification Compiler platform, not a chatbot, CRUD dashboard, generic admin panel, or code generator UI.
+
+Core product model:
+
+```text
+Organization -> Project -> Run
+```
+
+A Run is the atomic unit of work and contains Specification, Planning Report, Architecture, Compilation Trace, and Artifact Bundle.
+
+## Current State
+
+Milestone 0 is complete: repository-to-spec gap analysis was performed.
+
+Milestone 1 is complete: frontend design system foundation was implemented. No backend code was changed. No new routes were added. `/dashboard` was not migrated. Existing routes, backend API calls, authentication, and compiler behavior were preserved.
+
+Milestone 1.1 is complete for validation tooling stabilization only. It did not implement Milestone 1.5, adapter code, routes, app shell migration, backend changes, API changes, mock data, or fake endpoints.
+
+Milestone 1 changed the frontend styling foundation only:
+
+- Added semantic CSS tokens in `frontend/src/styles/tokens.css`, including surfaces, borders, text, accent, status, radius, spacing, elevation, and animation values
+- Updated global styling in `frontend/src/app/globals.css`
+- Integrated Inter and JetBrains Mono in `frontend/src/app/layout.tsx`
+- Updated `frontend/tailwind.config.ts` to consume semantic tokens
+- Removed duplicate `frontend/tailwind.config.js`
+- Added or improved shared primitives: Button, Card, Badge, StatusBadge, Input, EmptyState, Skeleton, Spinner
+- Added adapter planning notes in `docs/FrontendAdapterDesign.md` and `docs/ai/FRONTEND_ADAPTER_PLAN.md`
+
+User explicitly instructed: do not push, commit, or stage anything without permission.
+
+## Frozen Constraints
+
+- Backend, APIs, authentication, deterministic compiler pipeline, deployment system, and data contracts are frozen.
+- Do not modify backend code unless there is a frontend integration bug and user approval is requested first.
+- Do not invent backend endpoints.
+- Do not add mock data.
+- Do not route-migrate or redesign screens without milestone approval.
+- Existing frontend code is prototype code and must not override the specification.
+
+## Important Decisions
+
+- Semantic design tokens now live in CSS variables, with Tailwind configured as a consumer rather than the source of product semantics.
+- Dark enterprise UI is the default token theme, with a `.light` token set available but not wired into a theme switcher.
+- UI typography uses Inter for interface text and JetBrains Mono for code or technical values.
+- Shared primitives were updated conservatively so existing routes can keep compiling.
+- The future Run-centered UI must use a frontend adapter layer before route migration.
+- The approved adapter planning location is `frontend/src/lib/genesis/`, but adapter implementation is not approved yet.
+
+## Validation Status
+
+Before Milestone 1.1 changes, `npm.cmd run build` compiled the app bundle, but Next type validation failed because local dependency `@playwright/test` was missing.
+
+Before Milestone 1.1 changes, `npm.cmd test` failed because local dependency `vitest` was missing.
+
+Before Milestone 1.1 changes, `npm.cmd run lint` opened the first-time Next ESLint configuration prompt because the frontend had no ESLint config.
+
+Milestone 1.1 added explicit Next ESLint configuration, installed/locked frontend validation dependencies, and scoped Vitest to `frontend/tests` so Playwright e2e specs remain under `npm run test:e2e`.
+
+After Milestone 1.1, validation commands are non-interactive and repeatable:
+
+- `npm.cmd run lint` passes with no warnings or errors.
+- `npm.cmd run build` compiles successfully, then fails on an existing route/component type mismatch in `src/app/dashboard/project/[id]/page.tsx`.
+- `npm.cmd test` runs Vitest and fails on existing unit test/component mismatches, not missing tooling.
+- `git diff --check` passes with CRLF warnings only.
+- Playwright browser binaries were not installed; `npx.cmd playwright install --dry-run chromium` only reported intended install locations and download URLs.
+
+Milestone 1.2 is complete for existing build/test baseline fixes only:
+
+- Fixed `frontend/src/app/dashboard/project/[id]/page.tsx` to pass existing project planning report data and telemetry traces to child components using their current prop contracts.
+- Updated `PlanningReportViewer` to accept missing reports and render an honest empty state.
+- Updated stale unit tests to match current component props and empty-state copy.
+- Adjusted `frontend/vitest.config.ts` to avoid duplicate Vite plugin type conflicts and use the automatic JSX runtime in tests.
+
+Current validation status after Milestone 1.2:
+
+- `npm.cmd run lint` passes.
+- `npm.cmd run build` passes.
+- `npm.cmd test` passes: 8 files, 10 tests.
+- `git diff --check` passes with CRLF warnings only.
+
+Milestone 1.3 is complete for `.gitignore` hygiene only:
+
+- Removed only the invalid final `.gitignore` entry `C:\Users\Dinusha Ekanayake\`.
+- Did not rewrite or normalize the rest of `.gitignore`.
+- Did not modify frontend source, backend code, package files, routes, adapter code, app shell, API contracts, compiler behavior, mock data, or fake endpoints.
+- `rg --files` works without the previous invalid-glob warning.
+
+Milestone 1.5 is complete for the frontend adapter view-model contract only:
+
+- Added route-neutral adapter files under `frontend/src/lib/genesis/`.
+- Added view-model contracts for Project, Run, Run summary, Run capabilities, artifact bundle, and artifact files.
+- Added pure mapping functions that treat each backend project/workspace record as the latest known Run.
+- Preserved `backendProjectId`, optional `backendWorkspaceId`, and `source: "backend-project-as-latest-run"`.
+- Added focused adapter tests in `frontend/tests/genesis-adapters.test.ts`.
+- Did not add routes, migrate `/dashboard`, implement app shell, change backend/API/compiler behavior, add mock runs, or invent endpoints.
+
+Current validation status after Milestone 1.5:
+
+- `npm.cmd run lint` passes.
+- `npm.cmd run build` passes.
+- `npm.cmd test` passes: 9 files, 15 tests.
+- `git diff --check` passes with CRLF warnings only.
+
+Milestone 2 is complete for app shell and navigation architecture only:
+
+- Added route-neutral shell components under `frontend/src/components/layout/`.
+- Replaced the old fixed flex dashboard wrapper with a CSS Grid app shell in `frontend/src/app/dashboard/layout.tsx`.
+- Implemented a 48px Global Rail, 0/240px Context Panel, 52px Header Bar, Main Work Surface, and right panel foundation.
+- Added `ShellProvider` for context/right panel expanded state with localStorage persistence and hydration-safe defaults.
+- Added active navigation and breadcrumbs from the current pathname.
+- Kept `/login` outside the authenticated dashboard shell.
+- Kept existing routes unchanged: `/`, `/login`, `/dashboard`, and `/dashboard/project/[id]`.
+- Did not migrate `/dashboard`, create product routes, implement compiler/Run pages, change backend/API/compiler behavior, add mock data, or invent endpoints.
+
+Current validation status after Milestone 2:
+
+- `npm.cmd run lint` passes.
+- `npm.cmd run build` passes.
+- `npm.cmd test` passes: 10 files, 17 tests.
+- `git diff --check` passes with CRLF warnings only.
+
+Milestone 3 is complete for route architecture only:
+
+- Added the target route shells under the `(app)` route group, wrapped by the existing app shell.
+- Added `/projects`, `/projects/[id]`, `/projects/[id]/runs`, `/projects/[id]/runs/[runId]`, Run child route shells, `/runs`, `/compiler`, `/telemetry`, `/team`, `/settings`, and `/search`.
+- Kept `/`, `/login`, `/dashboard`, and `/dashboard/project/[id]` working and unchanged as public/legacy compatibility routes.
+- Used the frontend Genesis adapter to map backend project records into Project and latest-known Run view models.
+- Did not invent Run history; unsupported surfaces render limited states.
+- Did not implement full compiler, Run overview, architecture, workspace, artifact, or report experiences.
+- Updated shell navigation to point at new target route shells without redirects.
+
+Current validation status after Milestone 3:
+
+- `npm.cmd run lint` passes.
+- `npm.cmd run build` passes and lists the new target routes.
+- `npm.cmd test` passes: 11 files, 20 tests.
+- `git diff --check` passes with CRLF warnings only.
+
+Milestone 3.1 is complete for route/shell QA and navigation hardening only:
+
+- Inspected all target route shells and legacy compatibility routes.
+- Verified route shells use honest limited states and adapter-backed latest-known Runs rather than fake Run history.
+- Replaced hardcoded `API Connected` shell badge with neutral `Shell Ready` to avoid implying live backend status.
+- Added `/runs` to the Context Panel navigation.
+- Added shell test coverage for `/runs` active state and right panel visibility.
+- Did not implement compiler experience, full Run pages, dashboard redesign, backend/API/compiler changes, mock data, or fake endpoints.
+
+Current validation status after Milestone 3.1:
+
+- `npm.cmd run lint` passes.
+- `npm.cmd run build` passes and lists all target/legacy routes.
+- `npm.cmd test` passes: 11 files, 21 tests.
+- `git diff --check` passes with CRLF warnings only.
+
+`git diff --check` passed with CRLF warnings only.
+
+An attempted `npm.cmd install` hung silently and was stopped. No package or lockfile changes were detected from that attempt.
+
+The root `.gitignore` has unrelated existing changes, including a final literal Windows path entry that causes `rg` to report an invalid glob. Do not modify `.gitignore` unless the user approves.
+
+## Risks
+
+- Local dependency install is incomplete or stale.
+- `next/font/google` required network access once to fetch fonts; the build succeeded past font loading after escalation.
+- The target UI is Run-centered, while current backend payloads remain project/workspace-shaped.
+- Route migration before adapter design would risk inventing frontend-only assumptions or fake backend concepts.
+
+## Next Task
+
+Stop here until the user explicitly approves the next step.
+
+Current stopping point is Milestone 3.1 route/shell QA verified. Wait for explicit approval before Milestone 4 compiler experience, dashboard redesign, Run detail implementation, or deeper product UI work.

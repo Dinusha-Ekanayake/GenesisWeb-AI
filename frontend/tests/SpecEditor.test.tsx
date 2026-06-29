@@ -8,7 +8,8 @@ vi.mock('@monaco-editor/react', () => ({
 
 describe('SpecEditor', () => {
   it('renders correctly', () => {
-    render(<SpecEditor spec={{}} onChange={() => {}} />);
-    expect(screen.getByTestId('monaco-editor')).toBeInTheDocument();
+    render(<SpecEditor onRun={vi.fn()} loading={false} />);
+    expect(screen.getByText(/ProjectSpecification\.json/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Run Compiler/i })).toBeInTheDocument();
   });
 });

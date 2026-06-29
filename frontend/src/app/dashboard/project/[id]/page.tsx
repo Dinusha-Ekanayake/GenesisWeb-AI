@@ -14,6 +14,7 @@ import { useSSE } from "../../lib/hooks";
 export default function ProjectDetail({ params }: { params: { id: string } }) {
   const { data: statusData, isLoading: statusLoading, error: statusError } = useProjectStatus(params.id);
   const { data: project } = useProject(params.id);
+  const { data: telemetry } = useProjectTelemetry(params.id);
   const [activeTab, setActiveTab] = useState<"overview" | "planning" | "graphs" | "trace" | "deployment" | "workspace">("overview");
 
   // Hook handles live SSE updates
@@ -149,7 +150,7 @@ export default function ProjectDetail({ params }: { params: { id: string } }) {
           )}
 
           {activeTab === "planning" && (
-            <PlanningReportViewer projectId={params.id} />
+            <PlanningReportViewer report={project?.planning_report ?? null} />
           )}
 
           {activeTab === "graphs" && (
@@ -157,7 +158,7 @@ export default function ProjectDetail({ params }: { params: { id: string } }) {
           )}
 
           {activeTab === "trace" && (
-            <ExecutionTimeline projectId={params.id} />
+            <ExecutionTimeline traces={telemetry ?? project?.execution_trace ?? []} />
           )}
 
           {activeTab === "deployment" && (

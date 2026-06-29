@@ -1,17 +1,30 @@
-# Environments
+# =============================================================================
+# Genesis Engine — .gitignore
+# =============================================================================
+
+# =============================================================================
+# PYTHON
+# =============================================================================
+
+# Virtual environments
 venv/
 env/
 .venv/
-.env
+.env/
+ENV/
 
-# Python
+# Bytecode & compiled files
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
+*.pyd
+*.pyo
+
+# Distribution / packaging
+dist/
 build/
 develop-eggs/
-dist/
 downloads/
 eggs/
 .eggs/
@@ -23,21 +36,217 @@ var/
 wheels/
 share/python-wheels/
 *.egg-info/
-.installed.cfg
 *.egg
+.installed.cfg
 MANIFEST
 
-# Logs
-logs/
-*.log
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+pytest_cache/
 
-# Genesis Engine Workspace
+# mypy / pyright / type checkers
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyright/
+pyrightconfig.json
+
+# =============================================================================
+# ENVIRONMENT & SECRETS
+# =============================================================================
+
+.env
+.env.local
+.env.development
+.env.development.local
+.env.test
+.env.test.local
+.env.production
+.env.production.local
+.env.staging
+*.env
+secrets/
+*.pem
+*.key
+*.cert
+
+# =============================================================================
+# GENESIS ENGINE — RUNTIME OUTPUTS
+# =============================================================================
+
+# Compiler workspace outputs (generated per run, never committed)
 workspace/
+
+# Deployment artifact bundles
 artifacts/
 
-# Next.js / Frontend
+# LangGraph / LangChain cache
+.langchain/
+
+# =============================================================================
+# NODE.JS / FRONTEND
+# =============================================================================
+
 node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-debug.log*
+lerna-debug.log*
+
+# Next.js
 .next/
 out/
-build/
+
+# Nuxt.js
+.nuxt/
+dist/
+
+# Gatsby
+.cache/
+public/
+
+# Vite
+dist/
+dist-ssr/
+
+# Parcel
+.cache/
+.parcel-cache/
+
+# Build outputs
+*.tsbuildinfo
+next-env.d.ts
+
+# =============================================================================
+# LOGS
+# =============================================================================
+
+logs/
+*.log
+*.log.*
+log/
+
+# =============================================================================
+# OS & EDITOR ARTIFACTS
+# =============================================================================
+
+# macOS
 .DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# Linux
+*~
+
+# VS Code
+.vscode/settings.json
+.vscode/launch.json
+.vscode/extensions.json
+.vscode/*.code-snippets
+.history/
+*.vsix
+
+# JetBrains IDEs (PyCharm, WebStorm, etc.)
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# Vim
+[._]*.s[a-v][a-z]
+[._]*.sw[a-p]
+[._]s[a-rt-v][a-z]
+[._]ss[a-gi-z]
+[._]sw[a-p]
+
+# =============================================================================
+# DOCKER
+# =============================================================================
+
+# Ignore local docker overrides, keep the main compose file
+docker-compose.override.yml
+docker-compose.local.yml
+.dockerignore
+
+# =============================================================================
+# DATABASES & DATA FILES
+# =============================================================================
+
+*.db
+*.sqlite
+*.sqlite3
+*.db-shm
+*.db-wal
+*.sql
+data/
+local_data/
+
+# =============================================================================
+# TEMPORARY & SCRATCH FILES
+# =============================================================================
+
+# Root-level scratch/test scripts (not part of the application)
+test_import.py
+test_phase*.py
+run_e2e_*.py
+run_langgraph_*.py
+install_deps_temp.py
+
+tmp/
+temp/
+.tmp/
+*.tmp
+*.bak
+*.swp
+*.swo
+
+# =============================================================================
+# JUPYTER NOTEBOOKS (outputs only)
+# =============================================================================
+
+.ipynb_checkpoints
+*/.ipynb_checkpoints/*
+
+# =============================================================================
+# DOCUMENTATION BUILDS
+# =============================================================================
+
+docs/_build/
+docs/site/
+site/
+
+# =============================================================================
+# PLAYWRIGHT / E2E TEST ARTIFACTS
+# =============================================================================
+
+# Test results and traces (not source — keep config and test files)
+frontend/test-results/
+frontend/playwright-report/
+frontend/blob-report/
+frontend/playwright/.cache/
