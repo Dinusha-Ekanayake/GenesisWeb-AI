@@ -241,6 +241,27 @@ Risk: Medium. New routes are intentionally skeletal and only expose latest-known
 
 Outcome: Target routes build successfully, shell navigation reaches them, adapter-backed project/run pages render honest limited states, and full frontend validation passes.
 
+## 2026-06-29 21:59 +05:30
+
+Decision: Create `RunWorkspace.tsx` as a new component rather than reusing `WorkspaceExplorer` from the legacy dashboard.
+
+Reason: Three blockers prevent safe reuse. (1) `WorkspaceExplorer` uses Monaco Editor (`@monaco-editor/react`, dynamic SSR-disabled import) — a heavy dependency that requires canvas/DOM mocking in tests and is inconsistent with the `<pre>` blocks used throughout other M5 surfaces. (2) It uses hardcoded slate colors, not design tokens. (3) A `<pre>` block for file content is sufficient for a read-only workspace surface and produces clean, fully testable output. The new component calls the same frozen hooks (`useProjectWorkspace`, `useProjectFile`) with the correct `backendProjectId`.
+
+Additional decision: `run.capabilities.hasWorkspaceFiles` is intentionally not used as a workspace gate. The `GET /genesis/projects/{id}` endpoint does not embed workspace files in its response — they are fetched separately via `GET /genesis/projects/{id}/workspace`. Therefore `hasWorkspaceFiles` is always `false` for standard project records. The workspace surface fetches and shows data when available, and shows an honest unavailable state when the workspace endpoint returns nothing.
+
+Files affected:
+
+- `frontend/src/components/run/RunWorkspace.tsx` — new; file tree with expand/collapse, `<pre>` file preview, LimitedState + Open Compiler link when unavailable
+- `frontend/src/components/routes/RunRouteScaffold.tsx` — replaced old workspace LimitedState (which linked to the legacy dashboard) with `<RunWorkspace run={run} />`; added import
+- `frontend/tests/run-workspace.test.tsx` — new; 16 tests using `fireEvent`
+- `docs/ai/ACTIVE_CONTEXT.md` — updated
+- `docs/ai/DECISION_LOG.md` — updated
+- `docs/ai/CURRENT_MILESTONE.md` — updated
+
+Risk: Low. `RunWorkspace` uses `useProjectWorkspace` and `useProjectFile` — the same hooks already used by `WorkspaceExplorer` in the legacy dashboard. The backend project ID is always taken from `run.backendProjectId`. The workspace endpoint is read-only (no mutations). One test failure fixed during development: `getByText("README.md")` matched both the file tree button and the file path header code element; fixed with `getAllByText(...).length >= 2` and `getByLabelText`.
+
+Outcome: Lint, build, and all 95 tests pass. The `/projects/[id]/runs/[runId]/workspace` surface is a real workspace browser using the existing backend workspace API. No backend, API, auth, or compiler behavior was changed. No mock data or invented file paths were added.
+
 ## 2026-06-29 21:46 +05:30
 
 Decision: Create `RunArchitectureGraph.tsx` as a new pure component rather than reusing `GraphInspector` from the legacy dashboard.

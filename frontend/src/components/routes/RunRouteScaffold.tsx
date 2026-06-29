@@ -11,6 +11,7 @@ import { LimitedState, RouteScaffold } from "./RouteScaffold";
 import { RunOverview } from "@/components/run/RunOverview";
 import { RunArchitectureGraph } from "@/components/run/RunArchitectureGraph";
 import { RunPlanningReport } from "@/components/run/RunPlanningReport";
+import { RunWorkspace } from "@/components/run/RunWorkspace";
 
 type RunSurface = "overview" | "compiler" | "architecture" | "workspace" | "artifacts" | "report";
 
@@ -143,15 +144,7 @@ function SurfaceContent({ run, surface }: { run: RunViewModel; surface: RunSurfa
 
   if (surface === "architecture") return <RunArchitectureGraph run={run} />;
 
-  if (surface === "workspace") {
-    return (
-      <LimitedState
-        title={run.capabilities.hasWorkspaceFiles ? "Workspace browser deferred" : "Workspace files unavailable"}
-        description="The route exists, but workspace browsing remains in the legacy project detail screen until the workspace milestone is approved."
-        action={<Link href={`/dashboard/project/${run.backendProjectId}`} className="inline-flex rounded-sm bg-accent px-3 py-2 text-sm font-medium text-accent-foreground hover:bg-accent-hover">Open legacy workspace</Link>}
-      />
-    );
-  }
+  if (surface === "workspace") return <RunWorkspace run={run} />;
 
   if (surface === "artifacts") {
     if (!run.artifactBundle) {

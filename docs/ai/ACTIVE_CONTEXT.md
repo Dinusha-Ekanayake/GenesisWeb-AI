@@ -152,6 +152,24 @@ Milestone 5.1 is complete for the Run Overview only:
 - Did not change backend, API, auth, or compiler behavior.
 - Did not add mock data, fake Run history, or invent backend endpoints.
 
+Milestone 5.4 is complete for the Workspace surface only:
+
+- Added `frontend/src/components/run/RunWorkspace.tsx` — component with hooks: `useProjectWorkspace(run.backendProjectId)` (file tree) and delegates `useProjectFile(run.backendProjectId, path)` to a `FileViewer` child. The `backendProjectId` is always used for API calls — never the URL `runId`. Shows: loading spinner, LimitedState when workspace API returns empty/error (+ Open Compiler link), file tree sidebar with expandable directories via `FileTreeNode` (recursive, each directory manages its own `useState(open)`), file content `<pre>` block in the right panel. No Monaco Editor — consistent with other M5 surfaces using `<pre>` for content.
+- `run.capabilities.hasWorkspaceFiles` is NOT used as the workspace guard (the standard `GET /genesis/projects/{id}` endpoint does not embed workspace files; they come from a separate endpoint). The workspace surface always fetches and renders honestly based on the API response.
+- Updated `frontend/src/components/routes/RunRouteScaffold.tsx` — replaced the old workspace LimitedState (which linked to the legacy dashboard workspace) with `<RunWorkspace run={run} />`.
+- Added `frontend/tests/run-workspace.test.tsx` with 16 tests: loading state, API error state, empty-array state, file/directory names from real data, backend project ID in header, placeholder before file selection, directory expand/collapse via `fireEvent.click`, file content in pre after selection, file viewer loading state, no invented files, `useProjectWorkspace` called with backendProjectId, `useProjectFile` called with backendProjectId and real path, plus 2 RunRouteScaffold integration tests. One initial test failure (`getByText("README.md")` found two elements — tree button + header code) fixed with `getAllByText(...).length >= 2` + `getByLabelText("File content: README.md")`.
+- Did not implement Artifacts surface.
+- Did not change backend, API, auth, or compiler behavior.
+- Did not add mock data, fake files, or invent backend endpoints.
+- `@testing-library/user-event` is not installed — used `fireEvent` throughout.
+
+Current validation status after Milestone 5.4:
+
+- `npm.cmd run lint` passes.
+- `npm.cmd run build` passes and lists all target/legacy routes.
+- `npm.cmd test` passes: 16 files, 95 tests.
+- `git diff --check` passes with CRLF warnings only.
+
 Milestone 5.3 is complete for the Architecture Graph surface only:
 
 - Added `frontend/src/components/run/RunArchitectureGraph.tsx` — pure component (uses `useState` for graph tab selection, no backend calls). Receives `RunViewModel`. Shows: graph-name selector buttons (one per key in `run.architectureGraphs`), a collection stats grid (counts of `endpoints`, `pages`, `components`, `features`, `tables` where present), and the selected graph's raw JSON in a scrollable `<pre>` block. Unavailable state (LimitedState + Open Compiler link) when `!run.capabilities.hasArchitectureGraphs` or the graph record is empty.
@@ -262,4 +280,4 @@ The root `.gitignore` has unrelated existing changes, including a final literal 
 
 Stop here until the user explicitly approves the next step.
 
-Current stopping point is Milestone 5.3 Architecture Graph. Wait for explicit approval before Milestone 5.4+ (Workspace, Artifacts surfaces) or any other product UI work.
+Current stopping point is Milestone 5.4 Workspace. Wait for explicit approval before Milestone 5.5+ (Artifacts surface) or any other product UI work.
