@@ -433,6 +433,18 @@ Milestone 13 is complete for Login / Auth UX Integration only:
 
 Current validation baseline after M13: **22 files / 231 tests pass**.
 
+Milestone 14 is complete for Auth Guard / Unauthorized Redirect only:
+
+- Created `frontend/src/components/auth/AuthGuard.tsx` — `"use client"` component with 3-state `"checking" | "authenticated" | "unauthenticated"` status. On mount: reads `getToken()` (from `api-client.ts`); if present sets "authenticated" and renders children; if absent sets "unauthenticated" and calls `router.replace("/login")`. Renders `null` in non-authenticated states — no flash of protected content.
+- Modified `frontend/src/app/(app)/layout.tsx` — wraps `<AppShell>` in `<AuthGuard>`. Protects all `(app)` routes.
+- Modified `frontend/src/app/dashboard/layout.tsx` — same pattern. Protects `/dashboard` and `/dashboard/project/[id]`.
+- `frontend/src/app/login/page.tsx` — unchanged, remains public (no layout guard above it).
+- `frontend/src/app/page.tsx` — unchanged, remains public.
+- Created `frontend/tests/auth-guard.test.tsx` — 3 tests: renders children with token, calls `router.replace("/login")` without token, does not render children without token.
+- No existing test files modified — all tests render components directly, bypassing layouts.
+
+Current validation baseline after M14: **23 files / 234 tests pass**.
+
 ## Next Task
 
-Stop here until the user explicitly approves the next milestone. M13 (Login / Auth UX Integration) is complete. Current validation baseline: 22 files / 231 tests.
+Stop here until the user explicitly approves the next milestone. M14 (Auth Guard / Unauthorized Redirect) is complete. Current validation baseline: 23 files / 234 tests.

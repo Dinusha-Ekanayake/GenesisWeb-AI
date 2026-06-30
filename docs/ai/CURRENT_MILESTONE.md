@@ -1,6 +1,6 @@
 # Current Milestone
 
-Status: complete — Milestone 13 (Login / Auth UX Integration).
+Status: complete — Milestone 14 (Auth Guard / Unauthorized Redirect).
 
 ## Completed Milestones
 
@@ -27,6 +27,7 @@ Status: complete — Milestone 13 (Login / Auth UX Integration).
 - M11: Final Route QA and Production Readiness Pass
 - M12: Backend-Connected Manual Smoke Test Support
 - M13: Login / Auth UX Integration
+- M14: Auth Guard / Unauthorized Redirect
 
 ## Current Validation Baseline
 
@@ -39,7 +40,7 @@ npm.cmd test
 git diff --check
 ```
 
-Expected baseline (M13): lint pass, build pass, **22 files / 231 tests pass**, diff --check pass (CRLF warnings only).
+Expected baseline (M14): lint pass, build pass, **23 files / 234 tests pass**, diff --check pass (CRLF warnings only).
 
 ## Stopping Point
 

@@ -1,5 +1,29 @@
 # Decision Log
 
+## 2026-06-30 10:30 +05:30
+
+Decision: M14 — Add frontend auth guard to protect app-shell routes. Token check is localStorage-only on the client; no JWT decoding, no refresh tokens, no role checks.
+
+Key decisions within M14:
+
+1. **Guard placed in both layout files, not in `AppShell`.** `(app)/layout.tsx` and `dashboard/layout.tsx` both wrap their `<AppShell>` in `<AuthGuard>`. This is the correct architectural boundary: auth is a layout concern, not a shell concern. `AppShell` stays pure UI.
+
+2. **Three-state status: `"checking" | "authenticated" | "unauthenticated"`.** The "checking" initial state renders `null` so no protected content flashes before the localStorage read completes. The effect fires on first client mount and resolves synchronously (localStorage is sync), so the transition to "authenticated" or "unauthenticated" happens within the same browser paint.
+
+3. **`router.replace` not `router.push`.** Replace removes the protected route from browser history so the Back button does not return the user to a page that will just redirect them again.
+
+4. **`getToken()` from `api-client.ts` used directly.** The existing export already has the correct `typeof window !== "undefined"` SSR guard. No separate token utility needed. No mock of `api-client` in auth-guard tests — the real implementation reads from jsdom's `window.localStorage`.
+
+5. **No existing test files needed updating.** All existing tests render components directly, bypassing layouts. Route-architecture tests render page components; app-shell tests render `<AppShell>`; both are unaffected by AuthGuard being added to layouts.
+
+Files changed:
+- `frontend/src/components/auth/AuthGuard.tsx` — created; 3-state client guard
+- `frontend/src/app/(app)/layout.tsx` — wrapped AppShell in AuthGuard
+- `frontend/src/app/dashboard/layout.tsx` — wrapped AppShell in AuthGuard
+- `frontend/tests/auth-guard.test.tsx` — created; 3 tests
+
+Validation: lint pass, build pass, **23 files / 234 tests pass**, diff --check pass (CRLF warnings only).
+
 ## 2026-06-30 10:10 +05:30
 
 Decision: M13 — Implement Login / Auth UX Integration using existing backend auth endpoint. No backend changes, no new auth contracts, no signup/OAuth/profile features.
