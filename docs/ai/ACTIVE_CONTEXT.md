@@ -445,6 +445,15 @@ Milestone 14 is complete for Auth Guard / Unauthorized Redirect only:
 
 Current validation baseline after M14: **23 files / 234 tests pass**.
 
+Milestone 15 is complete for Auth Expiry / 401 Handling only:
+
+- Modified `frontend/src/app/dashboard/lib/api-client.ts` — added 401 branch at the top of the `!res.ok` block in `fetchWrapper`. On 401 with `typeof window !== "undefined"`: calls `removeToken()`, calls `window.location.replace("/login")` unless already on `/login` (`window.location.pathname !== "/login"`), throws `new APIError(401, "Authentication expired. Please sign in again.")`.
+- The login endpoint (`POST /auth/token`) is not affected — `loginWithCredentials` uses raw `fetch`, not `fetchWrapper`. Wrong-password 401s do not trigger the global handler.
+- Modified `frontend/tests/api.test.ts` — added `describe("fetchWrapper 401 handling")` with 5 tests: removes token, redirects when not on /login, does not redirect when on /login, throws auth-expired error, non-401 errors leave token intact and do not redirect.
+- Tests mock `window.location` per-test using `vi.stubGlobal("location", { pathname, replace: vi.fn() })` with `vi.unstubAllGlobals()` cleanup.
+
+Current validation baseline after M15: **23 files / 239 tests pass**.
+
 ## Next Task
 
-Stop here until the user explicitly approves the next milestone. M14 (Auth Guard / Unauthorized Redirect) is complete. Current validation baseline: 23 files / 234 tests.
+Stop here until the user explicitly approves the next milestone. M15 (Auth Expiry / 401 Handling) is complete. Current validation baseline: 23 files / 239 tests.

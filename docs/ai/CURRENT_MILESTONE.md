@@ -1,6 +1,6 @@
 # Current Milestone
 
-Status: complete — Milestone 14 (Auth Guard / Unauthorized Redirect).
+Status: complete — Milestone 15 (Auth Expiry / 401 Handling).
 
 ## Completed Milestones
 
@@ -28,6 +28,7 @@ Status: complete — Milestone 14 (Auth Guard / Unauthorized Redirect).
 - M12: Backend-Connected Manual Smoke Test Support
 - M13: Login / Auth UX Integration
 - M14: Auth Guard / Unauthorized Redirect
+- M15: Auth Expiry / 401 Handling
 
 ## Current Validation Baseline
 
@@ -40,7 +41,7 @@ npm.cmd test
 git diff --check
 ```
 
-Expected baseline (M14): lint pass, build pass, **23 files / 234 tests pass**, diff --check pass (CRLF warnings only).
+Expected baseline (M15): lint pass, build pass, **23 files / 239 tests pass**, diff --check pass (CRLF warnings only).
 
 ## Stopping Point
 

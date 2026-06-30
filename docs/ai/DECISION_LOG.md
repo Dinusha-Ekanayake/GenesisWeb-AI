@@ -1,5 +1,31 @@
 # Decision Log
 
+## 2026-06-30 10:45 +05:30
+
+Decision: M15 — Handle backend 401 responses centrally in `fetchWrapper`. Token is cleared and user is redirected to `/login` without using React hooks.
+
+Key decisions within M15:
+
+1. **401 handler placed at the top of the `!res.ok` block in `fetchWrapper`.** This intercepts 401s before the generic error-parsing code runs, avoids parsing a body we don't need, and throws a clean, user-readable `APIError(401, "Authentication expired. Please sign in again.")`.
+
+2. **`window.location.replace("/login")` not `useRouter()`.** `api-client.ts` is a utility module, not a React component — hooks are unavailable. `window.location.replace` is the correct imperative redirect and does not add to browser history (so Back doesn't loop).
+
+3. **Redirect loop guard: `window.location.pathname !== "/login"`.**  If a 401 occurs while already on `/login` (e.g. from an unexpected API call on that page), the redirect is skipped. In practice, the login form uses `loginWithCredentials` (raw `fetch`, not `fetchWrapper`), so wrong-password 401s never reach this handler at all.
+
+4. **`typeof window !== "undefined"` guard retained.** `api-client.ts` can run during Next.js server-side execution. Without the guard, `window.location` would throw on the server. The check was already present in `getToken`/`setToken`/`removeToken`.
+
+5. **Existing retry logic already prevents 401 retries.** The catch block re-throws 4xx non-429 errors immediately without incrementing `attempt`. The 401 `APIError` we throw is caught and re-thrown by existing logic — no behavior change needed there.
+
+6. **Login endpoint is not affected.** `loginWithCredentials` in `lib/auth/login.ts` uses raw `fetch`, not `fetchWrapper`. Wrong-password 401s from `POST /auth/token` never reach the global handler. No redirect loop risk.
+
+7. **Tests use `vi.stubGlobal("location", ...)` per test.** Each test stubs `window.location` with a controlled `{ pathname, replace: vi.fn() }`, avoiding jsdom's non-writable `location` object. `vi.unstubAllGlobals()` in `afterEach` restores the original.
+
+Files changed:
+- `frontend/src/app/dashboard/lib/api-client.ts` — added 401 branch in `!res.ok` block
+- `frontend/tests/api.test.ts` — added 5 tests in new `describe("fetchWrapper 401 handling")` block
+
+Validation: lint pass, build pass, **23 files / 239 tests pass**, diff --check pass (CRLF warnings only).
+
 ## 2026-06-30 10:30 +05:30
 
 Decision: M14 — Add frontend auth guard to protect app-shell routes. Token check is localStorage-only on the client; no JWT decoding, no refresh tokens, no role checks.

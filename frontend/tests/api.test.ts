@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { GenesisAPI } from '../src/app/dashboard/lib/genesis-api';
 
 describe('GenesisAPI', () => {
@@ -53,5 +53,87 @@ describe('GenesisAPI', () => {
       expect.stringContaining('/genesis/projects'),
       expect.any(Object)
     );
+  });
+});
+
+describe('fetchWrapper 401 handling', () => {
+  let mockReplace: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    mockReplace = vi.fn();
+    window.localStorage.clear();
+    window.localStorage.setItem('genesis_token', 'expired-token');
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    window.localStorage.clear();
+  });
+
+  it('removes genesis_token on 401 response', async () => {
+    vi.stubGlobal('location', { pathname: '/projects', replace: mockReplace });
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 401,
+      json: () => Promise.resolve({ detail: 'Not authenticated' }),
+    } as any);
+
+    try { await GenesisAPI.getProjects(); } catch {}
+
+    expect(window.localStorage.getItem('genesis_token')).toBeNull();
+  });
+
+  it('redirects to /login on 401 when not already on /login', async () => {
+    vi.stubGlobal('location', { pathname: '/projects', replace: mockReplace });
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 401,
+      json: () => Promise.resolve({ detail: 'Not authenticated' }),
+    } as any);
+
+    try { await GenesisAPI.getProjects(); } catch {}
+
+    expect(mockReplace).toHaveBeenCalledWith('/login');
+  });
+
+  it('does not redirect when 401 occurs while already on /login', async () => {
+    vi.stubGlobal('location', { pathname: '/login', replace: mockReplace });
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 401,
+      json: () => Promise.resolve({ detail: 'Not authenticated' }),
+    } as any);
+
+    try { await GenesisAPI.getProjects(); } catch {}
+
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  it('throws auth-expired APIError on 401', async () => {
+    vi.stubGlobal('location', { pathname: '/projects', replace: mockReplace });
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 401,
+      json: () => Promise.resolve({ detail: 'Not authenticated' }),
+    } as any);
+
+    await expect(GenesisAPI.getProjects()).rejects.toMatchObject({
+      status: 401,
+      message: 'Authentication expired. Please sign in again.',
+    });
+  });
+
+  it('non-401 errors do not remove token or redirect', async () => {
+    vi.stubGlobal('location', { pathname: '/projects', replace: mockReplace });
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: () => Promise.resolve({ detail: 'Internal Server Error' }),
+    } as any);
+
+    try { await GenesisAPI.getProjects(); } catch {}
+
+    expect(window.localStorage.getItem('genesis_token')).toBe('expired-token');
+    expect(mockReplace).not.toHaveBeenCalled();
   });
 });
