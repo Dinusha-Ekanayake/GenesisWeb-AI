@@ -1,6 +1,6 @@
 # Current Milestone
 
-Status: complete — Milestone 22 (Planning-First Architecture and Tech Stack Proposal).
+Status: complete — Milestone 23 (Approval-Gated Plan Validation and Generate Flow).
 
 ## Completed Milestones
 
@@ -36,6 +36,7 @@ Status: complete — Milestone 22 (Planning-First Architecture and Tech Stack Pr
 - M20: Persist Manifest, Architecture Graphs, and Planning Report
 - M21: Separate Pages and Components in Compiler IR
 - M22: Planning-First Architecture and Tech Stack Proposal
+- M23: Approval-Gated Plan Validation and Generate Flow
 
 ## Current Validation Baseline
 
@@ -48,14 +49,12 @@ npm.cmd test
 git diff --check
 ```
 
-Expected baseline (M22): lint pass, build pass, **23 files / 239 tests pass**, diff --check pass (CRLF warnings only).
-Frontend was not touched in M22.
+Expected baseline (M23): lint pass, build pass, **23 files / 239 tests pass**, diff --check pass (CRLF warnings only).
+Frontend was not touched in M23.
 
-Backend files changed in M22 (3 new files, 1 modified):
-- `genesis_engine/models/planning.py` (new)
-- `backend/app/services/planning_service.py` (new)
-- `backend/app/api/genesis_controller.py` (added `POST /genesis/propose` + `import json`)
-- `scripts/plan_genesis.py` (new)
+Backend files changed in M23 (1 new script, 1 modified controller):
+- `backend/app/api/genesis_controller.py` (added `POST /genesis/approve-and-generate`, `SUPPORTED_*` constants)
+- `scripts/approve_plan_genesis.py` (new)
 
 ## Stopping Point
 

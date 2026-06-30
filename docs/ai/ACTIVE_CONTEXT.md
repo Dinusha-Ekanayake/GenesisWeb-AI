@@ -885,6 +885,77 @@ Milestone 22 is complete for Planning-First Architecture and Tech Stack Proposal
 - `ProposedApplicationPlan` is not yet connected to the compiler. A future milestone (M23+) will add an approval-gated generate flow: user approves the plan → plan converts to `ProjectSpecification` → existing compiler runs.
 - Blueprint templates are fixed for 9 app types. LLM path will produce more nuanced, prompt-derived proposals.
 
+Milestone 23 is complete for Approval-Gated Plan Validation and Generate Flow only:
+
+**Planning-first compiler loop is now complete:**
+```
+POST /genesis/propose   → ProposedApplicationPlan (approval_status=PENDING)
+  ↓  user edits plan
+POST /genesis/approve-and-generate  → validates approval + stack → compiles → artifacts
+```
+
+**New endpoint: `POST /api/v1/genesis/approve-and-generate`.** Takes `{ "plan": ProposedApplicationPlan, "approval": { "approved": true, ... } }`. All validation happens before any filesystem work. Returns `{ status, project_id, manifest, approved_plan_summary }`.
+
+**2 files added/modified (backend only, no frontend product code):**
+
+1. `backend/app/api/genesis_controller.py` — added `SUPPORTED_FRONTEND_FRAMEWORKS = {"nextjs"}`, `SUPPORTED_BACKEND_FRAMEWORKS = {"fastapi"}` constants, and `POST /genesis/approve-and-generate` endpoint (150 lines of validation, conversion, pipeline call, and artifact persistence).
+
+2. `scripts/approve_plan_genesis.py` (new) — 7-section approval-gated smoke test.
+
+**Approval validation rules (in order, before any filesystem work):**
+1. `approval.approved` must be `True` → HTTP 400 if not
+2. Plan fields must be valid Pydantic (`ProposedApplicationPlan`) → HTTP 422 if not
+3. `project_id` must pass `PathValidator.validate_project_id` → HTTP 422 if not
+4. `name` must not be empty → HTTP 422 if not
+5. `pages` must not be empty → HTTP 422 if not
+6. `technology_stack.frontend.framework` must be in `{"nextjs"}` → HTTP 422 if not
+7. `technology_stack.backend.framework` must be in `{"fastapi"}` → HTTP 422 if not
+
+**Supported stack validation:** Unsupported frameworks (e.g. vite, express) return HTTP 422 with an explicit message: `"frontend.framework='vite' is not supported. Supported: ['nextjs']."` No workspace created.
+
+**Plan-to-spec conversion:** `pages`, `components`, `project_id`, `name`, `description` map directly. `technology_stack.*` maps to `ProjectSpecification`'s Dict fields (`frontend`, `backend`, `database`, `authentication`, `deployment`). Full plan persisted as `artifacts/approved_plan.json`.
+
+**`approved_plan.json` persistence:** Written AFTER `run_pipeline()` returns (same ordering rule as M20). The `artifacts/` directory exists at this point. The persisted JSON has `approval_status: "APPROVED"` stamped in, plus `approved_by` and `approval_notes` from the request.
+
+**Generated workspace for `approved_plan_001` (photography portfolio, 5 pages + 7 components):**
+```
+spec.json
+artifacts/approved_plan.json   (approval_status=APPROVED, approved_by=smoke_test)
+artifacts/planning_report.json
+artifacts/deployment_manifest.json
+artifacts/architecture_graphs.json
+artifacts/api_graph.json  ... (6 graph files)
+frontend/app/home/page.tsx
+frontend/app/about/page.tsx
+frontend/app/projects/page.tsx
+frontend/app/blog/page.tsx
+frontend/app/contact/page.tsx
+frontend/components/Navbar.tsx
+frontend/components/Footer.tsx
+frontend/components/ProjectCard.tsx
+frontend/components/BlogCard.tsx
+frontend/components/ContactForm.tsx
+frontend/components/HeroSection.tsx
+frontend/components/SkillBadge.tsx
+backend/app/main.py
+docker-compose.yml  Dockerfile.frontend  Dockerfile.backend
+```
+
+**Rejection verification:**
+- `approved=false` → HTTP 400, no `workspace/approved_plan_reject_001/` created ✓
+- `frontend=vite, backend=express` → HTTP 422, no `workspace/approved_plan_stack_001/` created ✓
+
+**Existing `/genesis/generate` unchanged:** Verified working with `m23_compat_check` project.
+
+**Scripts:** All 4 scripts (`smoke_test_genesis.py`, `benchmark_genesis.py`, `plan_genesis.py`, `approve_plan_genesis.py`) pass `py_compile` clean. All 4 smoke tests PASS.
+
+**Frontend validation after M23:** Frontend not touched. Baseline unchanged: **23 files / 239 tests pass**.
+
+**Remaining risks:**
+- LLM path (`generation_method: "llm"`) is exercised by `PlanningService` when `OPENAI_API_KEY` is set. The approve-and-generate flow works identically regardless of how the plan was generated.
+- Current generator (NextJs + FastAPI minimal plugins) produces stub output. Richer generation is M25+ scope.
+- `ProposedApplicationPlan` fields beyond `pages`/`components` (entities, api_routes, auth_requirements) are not yet fed into the compiler IR. They are preserved in `approved_plan.json` for future milestones.
+
 ## Next Task
 
-Stop here until the user explicitly approves the next milestone. M22 (Planning-First Architecture and Tech Stack Proposal) is complete. Current validation baseline: 23 files / 239 tests.
+Stop here until the user explicitly approves the next milestone. M23 (Approval-Gated Plan Validation and Generate Flow) is complete. Current validation baseline: 23 files / 239 tests.

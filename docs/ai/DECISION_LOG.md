@@ -1,5 +1,46 @@
 # Decision Log
 
+## 2026-06-30 18:00 +05:30
+
+Decision: M23 — Approval-Gated Plan Validation and Generate Flow. Add `POST /genesis/approve-and-generate` to complete the planning-first compiler loop.
+
+**Key decisions:**
+
+1. **New endpoint `POST /genesis/approve-and-generate`, not an extension of `/genesis/generate`.** The existing `/genesis/generate` takes a raw `ProjectSpecification` (direct spec path). The new endpoint takes a `ProposedApplicationPlan` + explicit approval object (planning-first path). Keeping them separate preserves both flows and makes the approval gate explicit.
+
+2. **All validation happens before any filesystem work.** The ordering is: (a) validate approval object, (b) validate plan structure, (c) validate stack compatibility, (d) then create workspace and run pipeline. Rejected cases (not approved, invalid plan, unsupported stack) never touch the filesystem. Confirmed: no workspace directories created for rejected cases.
+
+3. **Stack compatibility gate with clear error messages.** `SUPPORTED_FRONTEND_FRAMEWORKS = {"nextjs"}` and `SUPPORTED_BACKEND_FRAMEWORKS = {"fastapi"}` are defined at module level. Unsupported stacks return HTTP 422 with an explicit message naming the unsupported framework and listing what is supported. The message explicitly states this is a generator limitation, not a plan limitation.
+
+4. **`approved_plan.json` is written AFTER `run_pipeline()` returns.** Same ordering rule as M20 artifacts — the tamper-detection hash check inside `execute_build()` is closed by the time `run_pipeline()` returns. Writing `approved_plan.json` to `artifacts/` after the pipeline is safe. The `artifacts/` directory is guaranteed to exist at that point (created by the orchestrator).
+
+5. **Plan-to-spec conversion maps tech stack into `ProjectSpecification` Dict fields.** `plan.technology_stack.*` fields are mapped to `spec.authentication`, `spec.database`, `spec.backend`, `spec.frontend`, `spec.deployment`. The current generator only reads `pages` and `components` from the spec, so these Dict fields are informational for future generators. No information is silently dropped — the full plan is persisted in `approved_plan.json`.
+
+6. **`approved_plan_data["approval_status"] = "APPROVED"` is written to the persisted JSON.** The plan in the request may have `approval_status: "PENDING"` (from the propose step). The controller explicitly stamps `"APPROVED"` and adds `approved_by` and `approval_notes` before writing to disk. This ensures `artifacts/approved_plan.json` always reflects the actual approval state.
+
+7. **No engine, model, or plugin changes needed.** The controller endpoint handles the entire approval gate, plan-to-spec conversion, and `approved_plan.json` persistence. The engine (`run_full_pipeline`) sees only a valid `ProjectSpecification` and runs identically to the existing `/generate` path.
+
+**Files changed:**
+- `backend/app/api/genesis_controller.py` — added `SUPPORTED_FRONTEND_FRAMEWORKS`, `SUPPORTED_BACKEND_FRAMEWORKS` constants + `POST /genesis/approve-and-generate` endpoint
+- `scripts/approve_plan_genesis.py` (new) — 7-section smoke test: health, auth, propose, positive approved generation, negative not-approved, negative unsupported stack, existing /generate compat check
+
+**Validation (approved_plan_001 — photography portfolio, 5 pages + 7 components):**
+- `workspace/approved_plan_001/spec.json` ✓
+- `workspace/approved_plan_001/artifacts/approved_plan.json` ✓ (approval_status=APPROVED, approved_by=smoke_test)
+- `workspace/approved_plan_001/artifacts/planning_report.json` ✓
+- `workspace/approved_plan_001/artifacts/deployment_manifest.json` ✓
+- `workspace/approved_plan_001/artifacts/architecture_graphs.json` ✓
+- `frontend/app/`: 5 page files (home, about, projects, blog, contact) ✓
+- `frontend/components/`: 7 files (BlogCard, ContactForm, Footer, HeroSection, Navbar, ProjectCard, SkillBadge) ✓
+- Negative path (not approved) → HTTP 400, no workspace created ✓
+- Unsupported stack (vite+express) → HTTP 422, no workspace created ✓
+- `POST /genesis/generate` (existing) → build_status=SUCCESS ✓
+- All 4 scripts `py_compile` clean ✓
+- `smoke_test_genesis.py` (read-only + --generate): PASS ✓
+- `plan_genesis.py` (3 prompts): PASS ✓
+- `approve_plan_genesis.py` (7 sections): PASS ✓
+- Frontend baseline unchanged: **23 files / 239 tests pass**
+
 ## 2026-06-30 16:00 +05:30
 
 Decision: M22 — Planning-First Architecture and Tech Stack Proposal. Add `POST /genesis/propose` for prompt-to-plan conversion before any code generation.

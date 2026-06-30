@@ -87,6 +87,168 @@ def handle_exceptions(func):
             raise HTTPException(status_code=500, detail=str(e))
     return wrapper
 
+# Stacks supported by the current minimal generator plugins.
+# Reject approve-and-generate requests for any other stack with a clear error.
+SUPPORTED_FRONTEND_FRAMEWORKS = {"nextjs"}
+SUPPORTED_BACKEND_FRAMEWORKS = {"fastapi"}
+
+
+@router.post("/approve-and-generate", dependencies=[Depends(RequirePermission(Permission.COMPILE))])
+@handle_exceptions
+async def approve_and_generate(body: dict):
+    """
+    Approval-gated generation endpoint. Accepts an approved ProposedApplicationPlan and
+    an explicit approval object. Validates approval, validates the plan, checks stack
+    compatibility, converts to ProjectSpecification, runs the compiler pipeline, and
+    persists the approved plan alongside all other artifacts.
+
+    Rejected (no workspace created) when:
+    - approval.approved is not True
+    - plan fields are invalid (empty pages, missing project_id/name)
+    - technology_stack specifies an unsupported framework
+    """
+    from genesis_engine.models.planning import ProposedApplicationPlan
+    from genesis_engine.models.spec import ProjectSpecification
+
+    # 1. Parse top-level inputs
+    approval = body.get("approval", {})
+    plan_dict = body.get("plan", {})
+
+    if not isinstance(approval, dict):
+        raise HTTPException(status_code=422, detail="Field 'approval' must be an object.")
+    if not isinstance(plan_dict, dict):
+        raise HTTPException(status_code=422, detail="Field 'plan' must be an object.")
+
+    # 2. Validate approval FIRST — no filesystem work until this passes
+    if not approval.get("approved", False):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Generation rejected: approval.approved must be true. "
+                "Review the proposed plan, make any edits, then resubmit with approved=true."
+            ),
+        )
+
+    # 3. Parse and validate plan structure
+    try:
+        plan = ProposedApplicationPlan(**plan_dict)
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=f"Invalid plan: {e}")
+
+    project_id = PathValidator.validate_project_id(plan.project_id)
+
+    if not plan.name.strip():
+        raise HTTPException(status_code=422, detail="Plan validation failed: 'name' must not be empty.")
+
+    if not plan.pages:
+        raise HTTPException(
+            status_code=422,
+            detail="Plan validation failed: 'pages' must not be empty. At least one page is required for generation.",
+        )
+
+    # 4. Validate stack compatibility — reject unsupported stacks before touching filesystem
+    fe_framework = plan.technology_stack.frontend.framework.lower()
+    be_framework = plan.technology_stack.backend.framework.lower()
+
+    stack_errors = []
+    if fe_framework not in SUPPORTED_FRONTEND_FRAMEWORKS:
+        stack_errors.append(
+            f"frontend.framework='{plan.technology_stack.frontend.framework}' is not supported. "
+            f"Supported: {sorted(SUPPORTED_FRONTEND_FRAMEWORKS)}."
+        )
+    if be_framework not in SUPPORTED_BACKEND_FRAMEWORKS:
+        stack_errors.append(
+            f"backend.framework='{plan.technology_stack.backend.framework}' is not supported. "
+            f"Supported: {sorted(SUPPORTED_BACKEND_FRAMEWORKS)}."
+        )
+    if stack_errors:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "Unsupported technology stack in approved plan. "
+                + " ".join(stack_errors)
+                + " Change the plan's technology_stack before generation, "
+                "or wait for additional generator support."
+            ),
+        )
+
+    # 5. Convert ProposedApplicationPlan → ProjectSpecification
+    spec = ProjectSpecification(
+        project_id=plan.project_id,
+        name=plan.name,
+        description=plan.description,
+        pages=plan.pages,
+        components=plan.components,
+        theme={},
+        authentication={
+            "provider": plan.technology_stack.auth.provider,
+            "strategy": plan.technology_stack.auth.strategy,
+        },
+        database={
+            "engine": plan.technology_stack.database.engine,
+            "hosting": plan.technology_stack.database.hosting,
+        },
+        backend={
+            "framework": plan.technology_stack.backend.framework,
+            "language": plan.technology_stack.backend.language,
+            "orm": plan.technology_stack.backend.orm,
+        },
+        frontend={
+            "framework": plan.technology_stack.frontend.framework,
+            "language": plan.technology_stack.frontend.language,
+            "styling": plan.technology_stack.frontend.styling,
+        },
+        deployment={
+            "target": plan.deployment_target,
+            "containerization": plan.technology_stack.deployment.containerization,
+        },
+    )
+
+    # 6. Create workspace and write spec — first filesystem writes
+    project_dir = PathValidator.resolve_and_validate_path(WORKSPACE_ROOT, project_id)
+    await FileSystemService.mkdir(project_dir, parents=True, exist_ok=True)
+    await FileSystemService.write_json(project_dir / "spec.json", spec.model_dump())
+
+    # 7. Run compiler pipeline (validate → generate → build)
+    compiler = _get_compiler_service()
+    manifest = await compiler.run_pipeline(spec)
+
+    # 8. Persist the approved plan to artifacts/ AFTER the pipeline completes.
+    #    The tamper-detection hash check inside execute_build() is already done at this point.
+    artifacts_dir = project_dir / "artifacts"
+    await FileSystemService.mkdir(artifacts_dir, parents=True, exist_ok=True)
+    approved_plan_data = plan.model_dump()
+    approved_plan_data["approval_status"] = "APPROVED"
+    approved_plan_data["approved_by"] = approval.get("approved_by", "user")
+    approved_plan_data["approval_notes"] = approval.get("notes", "")
+    await FileSystemService.write_json(artifacts_dir / "approved_plan.json", approved_plan_data)
+
+    # 9. Build response
+    approved_plan_summary = {
+        "project_id": plan.project_id,
+        "name": plan.name,
+        "app_type": plan.app_type,
+        "pages": plan.pages,
+        "components": plan.components,
+        "entities": plan.entities,
+        "technology_stack": {
+            "frontend": plan.technology_stack.frontend.framework,
+            "backend": plan.technology_stack.backend.framework,
+            "database": plan.technology_stack.database.engine,
+        },
+        "generation_method": plan.generation_method,
+        "approval_status": "APPROVED",
+        "approved_by": approval.get("approved_by", "user"),
+    }
+
+    return api_response({
+        "status": "SUCCESS",
+        "project_id": project_id,
+        "manifest": manifest,
+        "approved_plan_summary": approved_plan_summary,
+    })
+
+
 @router.post("/propose", dependencies=[Depends(RequirePermission(Permission.COMPILE))])
 @handle_exceptions
 async def propose_plan(body: dict):
