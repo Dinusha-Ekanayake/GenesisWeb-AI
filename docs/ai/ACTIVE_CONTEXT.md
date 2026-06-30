@@ -1200,4 +1200,59 @@ class Customer(BaseModel):   # flat — avoids Pydantic v2 required-after-option
 **Scripts:**
 - `scripts/validate_m27.py` (new) — 36-check M27 validation runner.
 
-**Next task:** Wait for user approval of M27.
+---
+
+## Milestone 28 — Planned API Route Consumption and API Graph Alignment
+
+**Status: complete (2026-07-01)**
+
+Made Genesis consume entities from the IR and align the planning ApiGraph with the generated FastAPI CRUD routes. The `ApiPlanner` now generates entity-driven CRUD endpoints (5 per entity) instead of page-placeholder stubs, so `artifacts/api_graph.json` reflects what the backend actually exposes.
+
+**Priority (implemented):**
+1. `ir.entities` present → 5 CRUD endpoints per entity at `/api/v1/{plural}` with `target_entity` set
+2. `ir.api_routes` present → parse and normalize route strings
+3. else → page-derived GET+POST fallback (backward compat)
+
+**Changes:**
+
+- `genesis_engine/pipeline/planners/api_planner.py` — complete rewrite:
+  - `_pluralize()` module-level helper (same algorithm as `FastApiPlugin`)
+  - `_entity_crud_endpoints()`: 5 CRUD `ApiEndpointNode` per entity — GET+POST collection, GET+PUT+DELETE item. `requires_auth=True` for POST/PUT/DELETE. `target_entity` set to entity name.
+  - `_api_routes_endpoints()`: parse `ir.api_routes` strings; normalize `/api/v1` prefix; `{id}` → `{item_id}`; `requires_auth` from method type.
+  - `_page_derived_endpoints()`: original GET+POST-per-feature fallback preserved verbatim.
+  - `plan()`: three-way dispatch in priority order; conflict detection still applied to all paths.
+  - `_page_graph` parameter renamed to `_page_graph` (underscore prefix — it is unused in all paths).
+
+- `genesis_engine/plugins/implementations/fastapi_plugin.py` — `_generate_minimal_backend()` function name fix:
+  - Old: `func_name = endpoint.name.lower().replace(" ", "_")` → produces `"get_/api/v1/items"` (invalid identifier) when endpoint.name is `"GET /api/v1/items"` (api_routes parse path)
+  - New: derives identifier from path (`strip /api/v1`, replace `/{}` → `_`, prefix with method). Collision-safe via `seen` set.
+
+**Generated api_graph.json (api_graph_alignment_001 — CRM, 6 entities):**
+
+```
+GET  /api/v1/customers          target_entity=Customer  requires_auth=False
+POST /api/v1/customers          target_entity=Customer  requires_auth=True
+GET  /api/v1/customers/{item_id} target_entity=Customer requires_auth=False
+PUT  /api/v1/customers/{item_id} target_entity=Customer requires_auth=True
+DELETE /api/v1/customers/{item_id} target_entity=Customer requires_auth=True
+... (same pattern × 6 entities = 30 endpoints total)
+```
+
+No page-placeholder routes (`/api/v1/dashboard`, `/api/v1/reports`, `/api/v1/settings`) in api_graph.json for entity-bearing specs.
+
+**Validation (all checks PASS via `scripts/validate_m28.py`):**
+- 30 entity CRUD endpoints (6 × 5) in api_graph.json ✓
+- All 30 endpoints: `target_entity` set correctly, `requires_auth` correct per method ✓
+- No page-placeholder routes in api_graph.json ✓
+- `simple_no_entities_001` backward compat: 4 page-derived endpoints, no `target_entity`, no `{item_id}` routes ✓
+- `api_routes_parse_001`: 5 routes parsed and normalized (`/items`, `/items/{item_id}`), requires_auth correct ✓
+- `validate_m27.py` (36 checks): PASS ✓ (regression clean)
+
+**Downstream rules auto-validated:**
+- `SecureMutationsRule`: POST/PUT/DELETE all have `requires_auth=True` ✓ (free — rule runs on new graph automatically)
+- `ApiToDatabaseMappingRule`: all entity endpoints have `target_entity` that matches a DatabaseGraph table ✓ (alignment is structural — both come from `ir.entities`)
+
+**Scripts:**
+- `scripts/validate_m28.py` (new) — M28 validation runner covering 3 test projects.
+
+**Next task:** Wait for user approval of the next milestone.

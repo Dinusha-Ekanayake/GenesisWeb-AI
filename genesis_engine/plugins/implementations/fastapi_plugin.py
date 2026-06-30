@@ -238,9 +238,19 @@ SECRET_KEY=your-secret-key-here
         if not api_graph:
             return []
         code = ["from fastapi import FastAPI\n\napp = FastAPI()\n"]
+        seen: set = set()
         for endpoint in api_graph.endpoints:
-            func_name = endpoint.name.lower().replace(" ", "_")
             method = endpoint.method.lower()
+            path_part = (
+                endpoint.path.replace("/api/v1", "")
+                .replace("/", "_").replace("{", "").replace("}", "")
+                .strip("_")
+            )
+            base = f"{method}_{path_part}" if path_part else method
+            func_name, n = base, 1
+            while func_name in seen:
+                func_name, n = f"{base}_{n}", n + 1
+            seen.add(func_name)
             code.append(f"@app.{method}('{endpoint.path}')")
             code.append(f"def {func_name}():")
             code.append(f"    return {{'message': '{endpoint.name} generated deterministically'}}")

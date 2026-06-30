@@ -1,6 +1,6 @@
 # Current Milestone
 
-Status: complete — Milestone 27 (Entity Field Inference and Rich Schema Generator).
+Status: complete — Milestone 28 (Planned API Route Consumption and API Graph Alignment).
 
 ## Completed Milestones
 
@@ -41,6 +41,7 @@ Status: complete — Milestone 27 (Entity Field Inference and Rich Schema Genera
 - M25: Rich App Spec v2 and Approved Plan Compiler Mapping
 - M26: FastAPI Entity, Schema, and CRUD Generator Foundation
 - M27: Entity Field Inference and Rich Schema Generator
+- M28: Planned API Route Consumption and API Graph Alignment
 
 ## Current Validation Baseline
 
@@ -53,8 +54,21 @@ npm.cmd test
 git diff --check
 ```
 
-Expected baseline (M27): lint pass, build pass, **23 files / 239 tests pass**, diff --check pass (CRLF warnings only).
-Frontend product code was not touched in M27.
+Expected baseline (M28): lint pass, build pass, **23 files / 239 tests pass**, diff --check pass (CRLF warnings only).
+Frontend product code was not touched in M28.
+
+Engine/backend files changed in M28 (2 modified files):
+- `genesis_engine/pipeline/planners/api_planner.py` — rewrote `plan()` with three-priority dispatch: entity CRUD (5 routes/entity) → api_routes parse → page-derived fallback; added `_pluralize()`, `_entity_crud_endpoints()`, `_api_routes_endpoints()`, `_page_derived_endpoints()`
+- `genesis_engine/plugins/implementations/fastapi_plugin.py` — fixed `_generate_minimal_backend()` function name derivation (path-based identifiers, not `endpoint.name`) to avoid invalid Python identifiers from parsed api_routes
+
+Scripts added in M28:
+- `scripts/validate_m28.py` — M28 validation runner (covers entity CRUD alignment, backward compat, api_routes parse; all checks PASS)
+
+## Stopping Point
+
+Stop here until the user explicitly approves the next milestone.
+
+## Prior Milestone Engine Changes (M27)
 
 Engine/backend files changed in M27 (5 modified files):
 - `genesis_engine/models/planning.py` — added `EntityFieldDef`, `EntityDefinition`; added `entity_definitions` to `ProposedApplicationPlan`
@@ -62,10 +76,3 @@ Engine/backend files changed in M27 (5 modified files):
 - `genesis_engine/core/planning_engine.py` — added field inference tables and `_infer_attributes()`; updated `_convert_spec_to_ir()` to populate entity attributes via inference or explicit definitions
 - `genesis_engine/plugins/implementations/fastapi_plugin.py` — added `_py_type()` helper; rewrote `_generate_schemas_code()` for field-aware Pydantic schema generation
 - `backend/app/api/genesis_controller.py` — pass `entity_definitions` from plan to spec
-
-Scripts added in M27:
-- `scripts/validate_m27.py` — M27 validation runner (36 checks; PASS)
-
-## Stopping Point
-
-Stop here until the user explicitly approves the next milestone.
