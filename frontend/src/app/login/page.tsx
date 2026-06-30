@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { setToken, APIError } from "../dashboard/lib/api-client";
 import { Lock, Loader2 } from "lucide-react";
+import { loginWithCredentials } from "@/lib/auth/login";
+import { setToken } from "@/app/dashboard/lib/api-client";
 
 export default function LoginPage() {
   const [username, setUsername] = useState("");
@@ -16,87 +17,80 @@ export default function LoginPage() {
     e.preventDefault();
     setError("");
     setLoading(true);
-
     try {
-      const formData = new URLSearchParams();
-      formData.append("username", username);
-      formData.append("password", password);
-
-      const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api/v1";
-      const res = await fetch(`${API_BASE}/auth/token`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: formData,
-      });
-
-      if (!res.ok) {
-        throw new Error("Invalid username or password");
-      }
-
-      const data = await res.json();
-      setToken(data.access_token);
+      const token = await loginWithCredentials(username, password);
+      setToken(token);
       router.push("/dashboard");
-    } catch (err: any) {
-      setError(err.message || "Login failed");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Login failed. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-xl p-8 shadow-2xl">
+    <div className="min-h-screen bg-surface-base flex items-center justify-center p-4">
+      <div className="w-full max-w-md bg-surface-raised border border-border rounded-xl p-8 shadow-2xl">
         <div className="flex flex-col items-center mb-8">
-          <div className="w-12 h-12 bg-blue-600/20 text-blue-500 rounded-xl flex items-center justify-center mb-4">
+          <div className="w-12 h-12 bg-accent/20 text-accent rounded-xl flex items-center justify-center mb-4">
             <Lock className="w-6 h-6" />
           </div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">Genesis Engine</h1>
-          <p className="text-slate-400 text-sm mt-1">Control Plane Authentication</p>
+          <h1 className="text-2xl font-bold text-foreground tracking-tight">Genesis Engine</h1>
+          <p className="text-sm mt-1 text-[color:var(--text-secondary)]">Control Plane Authentication</p>
         </div>
 
         {error && (
-          <div className="mb-6 p-3 bg-red-500/10 border border-red-500/20 rounded-md text-red-400 text-sm text-center">
+          <div
+            role="alert"
+            className="mb-6 p-3 rounded-md text-sm text-center bg-[color:var(--error)]/10 border border-[color:var(--error)]/20 text-[color:var(--error)]"
+          >
             {error}
           </div>
         )}
 
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-1">Username</label>
-            <input 
-              type="text" 
+            <label htmlFor="username" className="block text-sm font-medium text-foreground mb-1">
+              Username
+            </label>
+            <input
+              id="username"
+              type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-800 rounded-md px-4 py-2.5 text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
-              placeholder="e.g. admin"
+              className="w-full bg-surface-base border border-border rounded-md px-4 py-2.5 text-foreground placeholder:text-[color:var(--text-tertiary)] focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors"
+              placeholder="e.g. developer"
               required
+              autoComplete="username"
             />
           </div>
-          
+
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-1">Password</label>
-            <input 
-              type="password" 
+            <label htmlFor="password" className="block text-sm font-medium text-foreground mb-1">
+              Password
+            </label>
+            <input
+              id="password"
+              type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-800 rounded-md px-4 py-2.5 text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
+              className="w-full bg-surface-base border border-border rounded-md px-4 py-2.5 text-foreground placeholder:text-[color:var(--text-tertiary)] focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors"
               placeholder="••••••••"
               required
+              autoComplete="current-password"
             />
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-md transition-colors flex items-center justify-center mt-2 disabled:opacity-50"
+            className="w-full bg-accent hover:bg-accent/90 text-accent-foreground font-medium py-2.5 rounded-md transition-colors flex items-center justify-center mt-2 disabled:opacity-50"
           >
-            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Sign In"}
+            {loading ? <Loader2 className="w-5 h-5 animate-spin" aria-hidden="true" /> : "Sign In"}
           </button>
         </form>
-        
-        <div className="mt-8 text-center text-xs text-slate-500">
+
+        <div className="mt-8 text-center text-xs text-[color:var(--text-tertiary)]">
           Secure Control Plane &bull; v1.0.0
         </div>
       </div>

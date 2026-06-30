@@ -1,5 +1,34 @@
 # Decision Log
 
+## 2026-06-30 10:10 +05:30
+
+Decision: M13 — Implement Login / Auth UX Integration using existing backend auth endpoint. No backend changes, no new auth contracts, no signup/OAuth/profile features.
+
+Key decisions within M13:
+
+1. **`/login/page.tsx` already existed with working logic — rewrote it, did not create from scratch.** The pre-existing page correctly called `POST /auth/token`, stored the token via `setToken`, and redirected to `/dashboard`. The problems were all hardcoded slate/blue colors (zero design tokens), raw browser error messages on network failure ("Failed to fetch"), and missing `htmlFor`/`id` on form fields. Rewrote using design tokens and extracted the fetch logic.
+
+2. **Extracted fetch logic to `frontend/src/lib/auth/login.ts`.** `loginWithCredentials(username, password)` wraps the `fetch` call, maps status codes to clean user-facing error strings (401 → "Incorrect username or password.", network throw → "Unable to reach the server. Check that the backend is running.", other non-ok → "Login failed. Please try again."), and returns the `access_token` string. Extracting this makes it independently testable and keeps the login page component thin.
+
+3. **Did not create `frontend/src/lib/auth/token.ts`.** `api-client.ts` already exports `getToken`, `setToken`, `removeToken` with correct `typeof window !== "undefined"` SSR guards. A thin re-export wrapper would add an indirection layer with no benefit.
+
+4. **Logout placed in `AppHeader` only.** The header is visible on every authenticated page and is already a `"use client"` component. Added a `LogOut` icon button with `aria-label="Sign out"` that calls `removeToken()` and `router.push("/login")`. `SettingsPage` was not modified — it is a server component and adding logout there would require making it client-side, which is out of M13 scope.
+
+5. **Network/offline error uses a specific message.** When `fetch()` throws (backend not running, ECONNREFUSED, timeout), the error message is "Unable to reach the server. Check that the backend is running." — not the raw browser "Failed to fetch". This is actionable for smoke testers.
+
+6. **Updated `Login.test.tsx` rather than creating a new file.** A `Login.test.tsx` (capital L) already existed with 2 basic render tests. Replaced it with the full M13 test suite (10 tests) maintaining the same file name convention.
+
+7. **Network failure test requires credentials to be filled.** The form has `required` on both inputs; HTML5 form validation blocks submit when fields are empty. Tests that expect `loginWithCredentials` to be called must fill both fields first — including the network failure test.
+
+Files changed:
+- `frontend/src/lib/auth/login.ts` — created; isolated login fetch logic
+- `frontend/src/app/login/page.tsx` — design tokens replacing all slate/blue classes; imports from `login.ts`; `htmlFor`/`id` added; error uses `role="alert"`
+- `frontend/src/components/layout/AppHeader.tsx` — added `LogOut` button + `handleLogout`; added `useRouter` import
+- `frontend/tests/Login.test.tsx` — replaced 2 basic tests with 10 M13 tests
+- `frontend/tests/app-shell.test.tsx` — extracted `mockPush` to module scope; added logout test
+
+Validation: lint pass, build pass, **22 files / 231 tests pass**, diff --check pass (CRLF warnings only).
+
 ## 2026-06-30 09:35 +05:30
 
 Decision: M11 QA pass — removed stale/fake UI labels, updated misleading metric logic. No new features added.

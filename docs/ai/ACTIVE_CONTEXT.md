@@ -420,6 +420,19 @@ Milestone 12 is complete for Backend-Connected Manual Smoke Test Support only:
 
 No frontend source files changed. No tests added or changed. Validation baseline unchanged: **22 files / 222 tests pass**.
 
+Milestone 13 is complete for Login / Auth UX Integration only:
+
+- Created `frontend/src/lib/auth/login.ts` — `loginWithCredentials(username, password)` wraps `POST /auth/token`, maps 401 → "Incorrect username or password.", network throw → "Unable to reach the server. Check that the backend is running.", other non-ok → "Login failed. Please try again.", returns `access_token` string.
+- Rewrote `frontend/src/app/login/page.tsx` — replaced all hardcoded slate/blue Tailwind classes with design tokens (`bg-surface-base`, `bg-surface-raised`, `border-border`, `bg-accent`, `text-accent-foreground`, `text-[color:var(--error)]`, etc.); added `htmlFor`/`id` on all form fields; error div uses `role="alert"`; imports from `login.ts` + `setToken` from `api-client.ts`.
+- Modified `frontend/src/components/layout/AppHeader.tsx` — added `LogOut` icon button with `aria-label="Sign out"` that calls `removeToken()` + `router.push("/login")`. Visible on every authenticated page.
+- Replaced 2-test `frontend/tests/Login.test.tsx` with 10-test M13 suite: username/password fields rendered, Sign In button, calls `loginWithCredentials` with credentials, stores token, redirects to `/dashboard`, shows error on invalid credentials, shows error on network failure, button disabled during flight, no signup/register/OAuth/reset UI.
+- Updated `frontend/tests/app-shell.test.tsx` — extracted `mockPush` to module scope; added test: "sign out removes genesis_token and redirects to /login".
+- Did not create `frontend/src/lib/auth/token.ts` — `api-client.ts` already exports `getToken`/`setToken`/`removeToken` with SSR guards.
+- Did not add logout to SettingsPage — it is a server component; adding logout there would require making it client-side.
+- Did not add signup, register, OAuth, profile, password reset, or role management.
+
+Current validation baseline after M13: **22 files / 231 tests pass**.
+
 ## Next Task
 
-Stop here until the user explicitly approves the next milestone. M12 (Backend-Connected Manual Smoke Test Support) is complete. Current validation baseline: 22 files / 222 tests.
+Stop here until the user explicitly approves the next milestone. M13 (Login / Auth UX Integration) is complete. Current validation baseline: 22 files / 231 tests.

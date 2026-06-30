@@ -3,15 +3,17 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { AppShell } from "../src/components/layout/AppShell";
 
 let pathname = "/projects";
+const mockPush = vi.fn();
 
 vi.mock("next/navigation", () => ({
   usePathname: () => pathname,
-  useRouter: () => ({ push: vi.fn() }),
+  useRouter: () => ({ push: mockPush }),
 }));
 
 describe("AppShell", () => {
   beforeEach(() => {
     pathname = "/projects";
+    mockPush.mockClear();
     window.localStorage.clear();
   });
 
@@ -45,5 +47,15 @@ describe("AppShell", () => {
       expect(window.localStorage.getItem("genesis:shell:right-panel-expanded")).toBe("true");
       expect(screen.getByLabelText("Inspector panel")).toHaveAttribute("aria-hidden", "false");
     });
+  });
+
+  it("sign out removes genesis_token and redirects to /login", () => {
+    window.localStorage.setItem("genesis_token", "existing-token");
+    render(<AppShell><div>Dashboard content</div></AppShell>);
+
+    fireEvent.click(screen.getByRole("button", { name: /sign out/i }));
+
+    expect(window.localStorage.getItem("genesis_token")).toBeNull();
+    expect(mockPush).toHaveBeenCalledWith("/login");
   });
 });
