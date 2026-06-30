@@ -1256,3 +1256,75 @@ No page-placeholder routes (`/api/v1/dashboard`, `/api/v1/reports`, `/api/v1/set
 - `scripts/validate_m28.py` (new) — M28 validation runner covering 3 test projects.
 
 **Next task:** Wait for user approval of the next milestone.
+
+---
+
+## Milestone 29 — SQLAlchemy Model and SQLite Persistence Foundation
+
+**Status: complete (2026-07-01)**
+
+Replaced in-memory dict storage (`storage.py`, M26/M27) with real SQLAlchemy + SQLite persistence. Generated backends now survive process restarts.
+
+**Goal:** `database.py` (engine/SessionLocal/Base/get_db), `models.py` (one SQLAlchemy model per entity), `schemas.py` upgraded with `ConfigDict(from_attributes=True)`, routers rewritten to use `Session = Depends(get_db)`, `main.py` calls `Base.metadata.create_all(bind=engine)`. No Alembic, no PostgreSQL, no auth enforcement, no relationships.
+
+**1 file rewritten (plugin only, no orchestrator/controller/model changes):**
+
+`genesis_engine/plugins/implementations/fastapi_plugin.py`:
+
+- `_sa_type(raw)` static method — maps `string→String`, `integer→Integer`, `number→Float`, `boolean→Boolean`.
+- `_generate_config_files()` — `requirements.txt` now includes `sqlalchemy>=2.0.0`; `.env.example` now has `DATABASE_URL=sqlite:///./genesis_app.db`.
+- `_generate_database_code()` (new) — emits `engine = create_engine("sqlite:///./genesis_app.db", connect_args={"check_same_thread": False})`, `SessionLocal`, `Base = declarative_base()`, `get_db()` generator dependency.
+- `_generate_models_code(entities)` (new) — one `class {Name}(Base)` per entity with `__tablename__ = "{plural}"`, `id` primary key, and a `Column(...)` per inferred field (falls back to `name = Column(String, nullable=False)` if entity has no columns).
+- `_generate_schemas_code()` — response model now starts with `model_config = ConfigDict(from_attributes=True)` so FastAPI can serialize SQLAlchemy ORM objects directly.
+- `_generate_router_code(table, plural)` — full rewrite: every endpoint takes `db: Session = Depends(get_db)` and uses `db.query(...)`, `db.add`/`db.commit`/`db.refresh`, `db.delete`. Imports `{Name} as {Name}Model` from `..models` to avoid colliding with the Pydantic schema class of the same name.
+- `_generate_entity_main_code(plurals)` — imports `engine, Base` from `.database` and `models` (for ORM registration), calls `Base.metadata.create_all(bind=engine)` before `app = FastAPI(...)`.
+- `_generate_entity_backend(entities)` — now emits `database.py` and `models.py`; `storage.py` generation removed entirely (`_generate_storage_code()` deleted).
+- No-entity path (`_generate_minimal_backend()`) and `generate()` dispatch logic unchanged.
+
+**Generated file tree for `sqlite_persistence_001` (CRM — 6 entities):**
+```
+backend/requirements.txt        (fastapi, uvicorn, pydantic, sqlalchemy)
+backend/.env.example            (DATABASE_URL=sqlite:///./genesis_app.db)
+backend/app/__init__.py
+backend/app/database.py         (engine, SessionLocal, Base, get_db)
+backend/app/models.py           (6 SQLAlchemy model classes)
+backend/app/schemas.py          (18 Pydantic classes, from_attributes=True)
+backend/app/routers/__init__.py
+backend/app/routers/customers.py / deals.py / activities.py / users.py / teams.py / notes.py
+backend/app/main.py             (create_all + 6 include_router + /health)
+backend/genesis_app.db          (created at runtime on first request)
+```
+
+**Validation (45/45 checks PASS via `scripts/validate_m29.py`):**
+- All required files exist; `storage.py` confirmed absent ✓
+- All generated backend `.py` files pass `py_compile` ✓
+- `requirements.txt` includes `sqlalchemy` ✓
+- `database.py`: `get_db`/`engine`/`Base`/`SessionLocal`/`genesis_app.db`/`check_same_thread` all present ✓
+- `models.py`: `Base`/`Column`/`Integer`/`String`/`primary_key=True`/`__tablename__` all present ✓
+- `schemas.py`: `ConfigDict(from_attributes=True)` present ✓
+- Routers: `Session`/`Depends`/`get_db`/`db.query`/`db.commit`/`db.refresh` present; `get_store`/`next_id` confirmed absent ✓
+- `main.py`: `create_all`, `models` import, `include_router`, `/health` all present ✓
+- **Live CRUD (generated backend on port 8010):** `POST /api/v1/customers/` with `{"name":"Acme Corp","email":"hello@acme.com","phone":"0712345678","company":"Acme","status":"Lead"}` → HTTP 201 with `id=1` and all fields echoed back ✓
+- **Persistence across restart:** generated backend stopped, restarted, `GET /api/v1/customers/1` → HTTP 200, same record (name/email match) ✓
+- `workspace/sqlite_persistence_001/backend/genesis_app.db` exists (53248 bytes) ✓
+
+**Regression (all PASS):**
+- `scripts/validate_m28.py`, `scripts/validate_m27.py`, `scripts/validate_m26.py` (both updated to check `database.py`/`models.py` instead of `storage.py`) ✓
+- `scripts/approve_plan_genesis.py` (`simple_no_entities_001`-style portfolio app — no-entity path unaffected) ✓
+- `scripts/smoke_test_genesis.py --generate` ✓
+
+**Bug fixed during validation:** `scripts/validate_m29.py`'s POST request initially targeted `/api/v1/customers` (no trailing slash); FastAPI's canonical router path is `/api/v1/customers/`, which triggers an HTTP 307 redirect that Python's `urllib.request` does not auto-follow for POST. Fixed by adding the trailing slash to the validation script's request URL.
+
+**Remaining risks / deferred to future milestones:**
+- No Alembic — schema changes to `models.py` are not migrated; `genesis_app.db` must be deleted to pick up new columns on existing workspaces.
+- No relationships — entities have flat columns only; foreign keys (e.g. `Deal.customer_id`) are plain `Integer` columns with no `ForeignKey`/`relationship()` wiring.
+- SQLite only — no PostgreSQL deployment path; `connect_args={"check_same_thread": False}` is SQLite-specific and would need removal for a real Postgres target.
+- No auth enforcement on generated CRUD routes — `requires_auth` flags exist in `api_graph.json` (M28) but are not wired into generated route dependencies.
+
+**Frontend validation after M29:** Frontend not touched. Baseline unchanged: **23 files / 239 tests pass**.
+
+**Scripts:**
+- `scripts/validate_m29.py` (new) — 45-check M29 validation runner (file tree, py_compile, content checks, live CRUD, restart persistence, DB file existence).
+- `scripts/validate_m26.py`, `scripts/validate_m27.py` (modified) — updated required-file lists and content checks to reflect `database.py`/`models.py` replacing `storage.py`.
+
+**Next task:** Wait for user approval of the next milestone.

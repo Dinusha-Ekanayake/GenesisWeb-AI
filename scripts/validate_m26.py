@@ -3,10 +3,12 @@
 M26 Validation -- FastAPI Entity, Schema, and CRUD Generator
 ============================================================
 Generates a CRM project with entities and verifies:
-  - schemas.py, storage.py, routers/__init__.py
+  - schemas.py, database.py, models.py, routers/__init__.py
   - Per-entity router files (customers.py, deals.py, etc.)
   - updated main.py with router includes + /health
   - All generated backend Python files pass py_compile
+
+Updated in M29: storage.py replaced by database.py + models.py (SQLAlchemy).
 
 Usage:
     python scripts/validate_m26.py
@@ -204,11 +206,12 @@ def main() -> None:
     backend_app = project_ws / "backend" / "app"
 
     required_files = [
-        ("backend/requirements.txt", project_ws / "backend" / "requirements.txt"),
-        ("backend/app/__init__.py",  backend_app / "__init__.py"),
-        ("backend/app/schemas.py",   backend_app / "schemas.py"),
-        ("backend/app/storage.py",   backend_app / "storage.py"),
-        ("backend/app/main.py",      backend_app / "main.py"),
+        ("backend/requirements.txt",       project_ws / "backend" / "requirements.txt"),
+        ("backend/app/__init__.py",         backend_app / "__init__.py"),
+        ("backend/app/database.py",         backend_app / "database.py"),
+        ("backend/app/models.py",           backend_app / "models.py"),
+        ("backend/app/schemas.py",          backend_app / "schemas.py"),
+        ("backend/app/main.py",             backend_app / "main.py"),
         ("backend/app/routers/__init__.py", backend_app / "routers" / "__init__.py"),
     ]
 
@@ -276,17 +279,34 @@ def main() -> None:
         class_count = schemas_content.count("class ")
         _pass(f"schemas.py class count", f"{class_count} class definition(s)")
 
-    storage_path = backend_app / "storage.py"
-    if storage_path.exists():
-        storage_content = storage_path.read_text(encoding="utf-8")
-        if "_stores" in storage_content and "get_store" in storage_content:
-            _pass("storage.py has _stores + get_store")
+    # M29: storage.py replaced by database.py + models.py (SQLAlchemy persistence)
+    database_path = backend_app / "database.py"
+    if database_path.exists():
+        db_content = database_path.read_text(encoding="utf-8")
+        if "get_db" in db_content and "engine" in db_content and "Base" in db_content:
+            _pass("database.py has get_db, engine, Base")
         else:
-            _fail("storage.py has _stores + get_store")
-        if "next_id" in storage_content:
-            _pass("storage.py has next_id counter")
+            _fail("database.py has get_db, engine, Base")
+        if "sqlalchemy" in db_content:
+            _pass("database.py imports sqlalchemy")
         else:
-            _fail("storage.py has next_id counter")
+            _fail("database.py imports sqlalchemy")
+
+    models_path = backend_app / "models.py"
+    if models_path.exists():
+        models_content = models_path.read_text(encoding="utf-8")
+        if "Column" in models_content and "Base" in models_content:
+            _pass("models.py has Column and Base")
+        else:
+            _fail("models.py has Column and Base")
+
+    req_path = project_ws / "backend" / "requirements.txt"
+    if req_path.exists():
+        req_content = req_path.read_text(encoding="utf-8")
+        if "sqlalchemy" in req_content.lower():
+            _pass("requirements.txt includes sqlalchemy")
+        else:
+            _fail("requirements.txt includes sqlalchemy")
 
     if entity_routers:
         sample = entity_routers[0]

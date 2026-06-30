@@ -1,5 +1,42 @@
 # Decision Log
 
+## 2026-07-01 (M29)
+
+Decision: M29 — SQLAlchemy Model and SQLite Persistence Foundation. Replace M26/M27's in-memory dict storage (`storage.py`) with real SQLAlchemy + SQLite persistence so generated CRUD backends survive process restarts.
+
+**Key decisions:**
+
+1. **`DATABASE_URL = "sqlite:///./genesis_app.db"` (not `genesis.db`).** User explicitly corrected the pre-coding proposal to this filename and path (`workspace/{project}/backend/genesis_app.db`). `connect_args={"check_same_thread": False}` is required because FastAPI's `TestClient`/dev server can hit the same SQLite connection from a different thread than it was created on.
+
+2. **`models.py` is generated separately from `schemas.py`.** SQLAlchemy ORM classes (`models.py`) and Pydantic schema classes (`schemas.py`) share entity names (e.g. `Customer`), so routers import the ORM class under an alias: `from ..models import Customer as CustomerModel`. This avoids a name collision with `from ..schemas import Customer` in the same router file.
+
+3. **`schemas.py` response models get `model_config = ConfigDict(from_attributes=True)` as the first class attribute.** Required for FastAPI to serialize SQLAlchemy ORM instances returned directly from `db.query(...)` calls into the Pydantic response model without manual `.dict()`/`jsonable_encoder` conversion. Response models stay flat (not inheriting `{Name}Base`) per the existing M27 Pydantic v2 required-after-optional rule.
+
+4. **Routers rewritten to take `db: Session = Depends(get_db)` on every endpoint.** Full SQLAlchemy CRUD pattern: `db.query(Model).all()` / `.filter(Model.id == item_id).first()` for reads, `db.add`/`db.commit`/`db.refresh` for create, fetch+404+`setattr`-loop+commit/refresh for update, fetch+404+`db.delete`+commit for delete. This replaces the M26/M27 `_stores`/`get_store`/`next_id` in-memory dict pattern entirely.
+
+5. **`main.py` imports `models` for ORM registration before calling `Base.metadata.create_all(bind=engine)`.** SQLAlchemy's declarative `Base.metadata` only knows about classes that have been imported (registered) at the time `create_all()` runs. The generated `main.py` includes a comment explaining this ordering constraint since it's a non-obvious gotcha for anyone reading the generated code.
+
+6. **`storage.py` generation removed entirely; `_generate_storage_code()` deleted.** No backward-compatibility shim — the in-memory store is fully replaced, not kept alongside the database. `validate_m26.py`/`validate_m27.py` updated to check for `database.py`/`models.py` instead of `storage.py`.
+
+7. **No-entity specs (`simple_no_entities_001`-style) are untouched.** `_generate_minimal_backend()` and the `generate()` dispatch logic (`entities` truthy → entity path, else → minimal path) are unchanged from M28. Verified via `approve_plan_genesis.py`'s no-entity portfolio-app test.
+
+**Files changed (M29):**
+- `genesis_engine/plugins/implementations/fastapi_plugin.py` — full rewrite: `_sa_type()`, `_generate_database_code()`, `_generate_models_code()` added; `_generate_schemas_code()` updated for `ConfigDict(from_attributes=True)`; `_generate_router_code()` rewritten for SQLAlchemy Session pattern; `_generate_entity_main_code()` updated for `create_all`; `_generate_storage_code()` deleted.
+- `scripts/validate_m26.py`, `scripts/validate_m27.py` — required-file and content checks updated: `storage.py` checks replaced with `database.py`/`models.py` checks.
+- `scripts/validate_m29.py` — new, 45-check validation runner (file tree, py_compile, content checks, live CRUD on port 8010, restart-persistence check, `genesis_app.db` existence check).
+
+**Validation (sqlite_persistence_001 — CRM, 6 entities, prompt: "Create a CRM for a sales team with customers, deals, activities, reports, team roles, and settings."):**
+- `scripts/validate_m29.py`: 45/45 PASS ✓
+- Live POST `/api/v1/customers/` → HTTP 201, `id=1`, all fields echoed ✓
+- Generated backend stopped and restarted; `GET /api/v1/customers/1` → HTTP 200, same record ✓
+- `workspace/sqlite_persistence_001/backend/genesis_app.db` exists (53248 bytes) ✓
+- `scripts/validate_m28.py`, `scripts/validate_m27.py`, `scripts/validate_m26.py`: PASS (regression clean) ✓
+- `scripts/approve_plan_genesis.py`, `scripts/smoke_test_genesis.py --generate`: PASS ✓
+
+**Bug found and fixed during validation:** First `validate_m29.py` POST request targeted `/api/v1/customers` (no trailing slash) and got an HTTP 307 redirect from FastAPI's canonical trailing-slash router path; `urllib.request`'s default redirect handler doesn't auto-follow 307 for POST. Fixed by targeting `/api/v1/customers/` directly in the validation script.
+
+---
+
 ## 2026-07-01 (M28)
 
 Decision: M28 — Planned API Route Consumption and API Graph Alignment. Make ApiPlanner generate entity CRUD endpoints (5 routes per entity at `/api/v1/{plural}`) instead of page-derived placeholder stubs when `ir.entities` is present, so the planning ApiGraph matches the backend generated by `FastApiPlugin`.

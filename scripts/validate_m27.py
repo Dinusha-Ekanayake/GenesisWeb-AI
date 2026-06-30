@@ -243,9 +243,10 @@ def main() -> None:
     backend_app = project_ws / "backend" / "app"
 
     required_files = [
-        ("backend/app/schemas.py",   backend_app / "schemas.py"),
-        ("backend/app/storage.py",   backend_app / "storage.py"),
-        ("backend/app/main.py",      backend_app / "main.py"),
+        ("backend/app/database.py",         backend_app / "database.py"),
+        ("backend/app/models.py",           backend_app / "models.py"),
+        ("backend/app/schemas.py",          backend_app / "schemas.py"),
+        ("backend/app/main.py",             backend_app / "main.py"),
         ("backend/app/routers/__init__.py", backend_app / "routers" / "__init__.py"),
     ]
     for label, path in required_files:

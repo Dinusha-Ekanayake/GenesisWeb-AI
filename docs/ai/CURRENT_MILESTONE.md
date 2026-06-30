@@ -1,6 +1,6 @@
 # Current Milestone
 
-Status: complete — Milestone 28 (Planned API Route Consumption and API Graph Alignment).
+Status: complete — Milestone 29 (SQLAlchemy Model and SQLite Persistence Foundation).
 
 ## Completed Milestones
 
@@ -42,6 +42,7 @@ Status: complete — Milestone 28 (Planned API Route Consumption and API Graph A
 - M26: FastAPI Entity, Schema, and CRUD Generator Foundation
 - M27: Entity Field Inference and Rich Schema Generator
 - M28: Planned API Route Consumption and API Graph Alignment
+- M29: SQLAlchemy Model and SQLite Persistence Foundation
 
 ## Current Validation Baseline
 
@@ -54,8 +55,23 @@ npm.cmd test
 git diff --check
 ```
 
-Expected baseline (M28): lint pass, build pass, **23 files / 239 tests pass**, diff --check pass (CRLF warnings only).
-Frontend product code was not touched in M28.
+Expected baseline (M29): lint pass, build pass, **23 files / 239 tests pass**, diff --check pass (CRLF warnings only).
+Frontend product code was not touched in M29.
+
+Engine/backend files changed in M29 (1 rewritten file):
+- `genesis_engine/plugins/implementations/fastapi_plugin.py` — replaced in-memory `storage.py` generation with real SQLAlchemy + SQLite persistence: added `_sa_type()`, `_generate_database_code()` (engine/SessionLocal/Base/get_db), `_generate_models_code()` (one SQLAlchemy model per entity); updated `_generate_schemas_code()` for `ConfigDict(from_attributes=True)`; rewrote `_generate_router_code()` for SQLAlchemy `Session = Depends(get_db)` CRUD; updated `_generate_entity_main_code()` to call `Base.metadata.create_all(bind=engine)`; deleted `_generate_storage_code()`.
+
+Scripts changed in M29:
+- `scripts/validate_m29.py` (new) — 45-check validation runner: file tree, py_compile, content checks, live CRUD on port 8010, restart-persistence check, `genesis_app.db` existence check.
+- `scripts/validate_m26.py`, `scripts/validate_m27.py` (modified) — required-file/content checks updated to verify `database.py`/`models.py` instead of `storage.py`.
+
+**Generated SQLite file location:** `workspace/{project_id}/backend/genesis_app.db` — confirmed present after live CRUD + restart test on `sqlite_persistence_001`.
+
+## Stopping Point
+
+Stop here until the user explicitly approves the next milestone.
+
+## Prior Milestone Engine Changes (M28)
 
 Engine/backend files changed in M28 (2 modified files):
 - `genesis_engine/pipeline/planners/api_planner.py` — rewrote `plan()` with three-priority dispatch: entity CRUD (5 routes/entity) → api_routes parse → page-derived fallback; added `_pluralize()`, `_entity_crud_endpoints()`, `_api_routes_endpoints()`, `_page_derived_endpoints()`
@@ -63,10 +79,6 @@ Engine/backend files changed in M28 (2 modified files):
 
 Scripts added in M28:
 - `scripts/validate_m28.py` — M28 validation runner (covers entity CRUD alignment, backward compat, api_routes parse; all checks PASS)
-
-## Stopping Point
-
-Stop here until the user explicitly approves the next milestone.
 
 ## Prior Milestone Engine Changes (M27)
 
