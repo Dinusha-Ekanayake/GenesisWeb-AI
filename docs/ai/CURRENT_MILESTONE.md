@@ -1,6 +1,6 @@
 # Current Milestone
 
-Status: complete — Milestone 23 (Approval-Gated Plan Validation and Generate Flow).
+Status: complete — Milestone 24 (Generated App Package Configs and Build-Ready Skeleton).
 
 ## Completed Milestones
 
@@ -37,6 +37,7 @@ Status: complete — Milestone 23 (Approval-Gated Plan Validation and Generate F
 - M21: Separate Pages and Components in Compiler IR
 - M22: Planning-First Architecture and Tech Stack Proposal
 - M23: Approval-Gated Plan Validation and Generate Flow
+- M24: Generated App Package Configs and Build-Ready Skeleton
 
 ## Current Validation Baseline
 
@@ -49,12 +50,12 @@ npm.cmd test
 git diff --check
 ```
 
-Expected baseline (M23): lint pass, build pass, **23 files / 239 tests pass**, diff --check pass (CRLF warnings only).
-Frontend was not touched in M23.
+Expected baseline (M24): lint pass, build pass, **23 files / 239 tests pass**, diff --check pass (CRLF warnings only).
+Frontend product code was not touched in M24.
 
-Backend files changed in M23 (1 new script, 1 modified controller):
-- `backend/app/api/genesis_controller.py` (added `POST /genesis/approve-and-generate`, `SUPPORTED_*` constants)
-- `scripts/approve_plan_genesis.py` (new)
+Backend/engine files changed in M24 (2 modified plugins):
+- `genesis_engine/plugins/implementations/nextjs_plugin.py` (added `_generate_config_files()` — 8 frontend config files)
+- `genesis_engine/plugins/implementations/fastapi_plugin.py` (added `_generate_config_files()` — 3 backend config files)
 
 ## Stopping Point
 

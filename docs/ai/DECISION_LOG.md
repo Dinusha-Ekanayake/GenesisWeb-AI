@@ -1,5 +1,35 @@
 # Decision Log
 
+## 2026-06-30 20:00 +05:30
+
+Decision: M24 — Generated App Package Configs and Build-Ready Skeleton. Extend existing plugins to emit package and config files so generated app directories are structurally installable.
+
+**Key decisions:**
+
+1. **Package/config generation belongs in existing plugins, not a new plugin.** The M19 target architecture listed a separate `PackageConfigGenerator` and `PythonConfigGenerator`. In practice, config files are tightly coupled to the framework output already produced by `NextJsPlugin` and `FastApiPlugin` — the frontend config depends on Next.js, the backend config depends on FastAPI. Splitting into a separate plugin would add indirection without benefit at this stage.
+
+2. **`_generate_config_files()` is called at the start of `generate()`, before page/component generation.** This guarantees config files are always present even if the spec has zero pages or zero components. `FastApiPlugin._generate_config_files()` is extracted from the `api_graph` early-return path for the same reason.
+
+3. **TsxValidator applied only to `frontend/app/layout.tsx`.** Other frontend config files (JSON, JS, CSS, TypeScript non-JSX) are static well-known content that does not require JSX structural validation. Applying TsxValidator to `package.json` would be meaningless and would require finding an `export default function` that doesn't exist. Validator applied only where it has semantic value.
+
+4. **`backend/app/__init__.py` emitted as empty string, PythonValidator applied.** `ast.parse("")` is valid Python — passes the validator. An empty `__init__.py` is the correct Python package marker with no content requirement.
+
+5. **`frontend/app/layout.tsx` is a Next.js 13+ App Router server component.** No `"use client"` directive. Imports `'./globals.css'` (co-emitted). Uses `{ children: ReactNode }` prop type (import from `'react'`). `export const metadata = { ... }` for page title. Brace balance verified against TsxValidator's naive string-stripping algorithm.
+
+6. **Dockerfile dependencies are now fulfilled.** `Dockerfile.backend` (`COPY backend/requirements.txt .`) and `Dockerfile.frontend` (`COPY frontend/package*.json ./`) both reference files that were not generated before M24. After M24, both COPY commands have real files. `RUN pip install` and `RUN npm install` will install actual dependencies.
+
+7. **Tamper detection unaffected.** Config files are written during `generate_code()` before `compute_deterministic_workspace_hash()`. The hash includes the new files. `execute_build()` recomputes the same hash — no mismatch.
+
+**Files changed:**
+- `genesis_engine/plugins/implementations/nextjs_plugin.py` — added `_generate_config_files()` emitting 8 frontend files
+- `genesis_engine/plugins/implementations/fastapi_plugin.py` — added `_generate_config_files()` emitting 3 backend files
+
+**Validation:**
+- Both plugin files pass `py_compile` (no syntax errors)
+- `TsxValidator` passes on `layout.tsx` (structural check + brace balance)
+- `PythonValidator` passes on empty `__init__.py`
+- Frontend validation baseline unchanged: **23 files / 239 tests pass**
+
 ## 2026-06-30 18:00 +05:30
 
 Decision: M23 — Approval-Gated Plan Validation and Generate Flow. Add `POST /genesis/approve-and-generate` to complete the planning-first compiler loop.

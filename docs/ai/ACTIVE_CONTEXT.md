@@ -958,4 +958,59 @@ docker-compose.yml  Dockerfile.frontend  Dockerfile.backend
 
 ## Next Task
 
-Stop here until the user explicitly approves the next milestone. M23 (Approval-Gated Plan Validation and Generate Flow) is complete. Current validation baseline: 23 files / 239 tests.
+Stop here until the user explicitly approves the next milestone. M24 (Generated App Package Configs and Build-Ready Skeleton) is complete. Current validation baseline: 23 files / 239 tests.
+
+Milestone 24 is complete for Generated App Package Configs and Build-Ready Skeleton only:
+
+**Goal:** Make generated app directories structurally installable. Before M24, `Dockerfile.backend` referenced `backend/requirements.txt` and `Dockerfile.frontend` referenced `frontend/package*.json` — both files were never generated, making Docker builds non-functional.
+
+**2 files modified (plugins only, no orchestrator/controller/model changes):**
+
+1. `genesis_engine/plugins/implementations/nextjs_plugin.py` — added `_generate_config_files()` method that emits 8 frontend files. Called at the start of `generate()` so configs are always written before pages/components:
+   - `frontend/package.json` — Next.js 14 + React 18 + Tailwind + TypeScript deps
+   - `frontend/tsconfig.json` — standard Next.js TypeScript compiler options
+   - `frontend/next.config.js` — minimal NextConfig module.exports
+   - `frontend/postcss.config.js` — tailwindcss + autoprefixer plugins
+   - `frontend/tailwind.config.ts` — content globs for app/components/pages
+   - `frontend/app/layout.tsx` — RootLayout server component with `{children}` and globals.css import (TsxValidator applied)
+   - `frontend/app/globals.css` — `@tailwind base/components/utilities` directives
+   - `frontend/.gitignore` — node_modules/, .next/, out/, .env*.local
+
+2. `genesis_engine/plugins/implementations/fastapi_plugin.py` — added `_generate_config_files()` method, called before the `api_graph` early-return so configs are always written even if api_graph is absent:
+   - `backend/requirements.txt` — fastapi>=0.110.0, uvicorn[standard]>=0.29.0, pydantic>=2.0.0
+   - `backend/app/__init__.py` — empty (PythonValidator applied, passes)
+   - `backend/.env.example` — DATABASE_URL and SECRET_KEY placeholders
+
+**Tamper detection safety:** Config files are emitted by plugins during `generate_code()`, which runs before `compute_deterministic_workspace_hash()` in the orchestrator. The hash is computed AFTER all plugin artifacts are written to disk. `execute_build()` validates against that same hash. No tamper-detection conflict.
+
+**Validator choices:**
+- `frontend/app/layout.tsx` — TsxValidator applied (TSX file, `export default function RootLayout(` passes structural check, brace balance verified manually)
+- `backend/app/__init__.py` — PythonValidator applied (`ast.parse("")` is valid Python)
+- All other config files (JSON, JS, CSS, TS non-JSX) — no validator (static well-known content, not JSX)
+
+**Impact on generated workspace (e.g. approved_plan_001 re-run):**
+```
+frontend/package.json                ← NEW
+frontend/tsconfig.json               ← NEW
+frontend/next.config.js              ← NEW
+frontend/postcss.config.js           ← NEW
+frontend/tailwind.config.ts          ← NEW
+frontend/app/layout.tsx              ← NEW
+frontend/app/globals.css             ← NEW
+frontend/.gitignore                  ← NEW
+backend/requirements.txt             ← NEW (Dockerfile.backend dependency fulfilled)
+backend/app/__init__.py              ← NEW
+backend/.env.example                 ← NEW
+frontend/app/home/page.tsx           (unchanged)
+...
+backend/app/main.py                  (unchanged)
+```
+
+**Dockerfile status after M24:**
+- `Dockerfile.backend` — `COPY backend/requirements.txt .` now has a real file ✓
+- `Dockerfile.frontend` — `COPY frontend/package*.json ./` now has a real file ✓
+- `RUN npm install` and `RUN pip install` will now install real dependencies
+
+**No changes to:** orchestrator, generation_engine, workspace_adapter, build_orchestrator, packager, models, API controller, frontend product code, or tests.
+
+**Frontend validation after M24:** Frontend not touched. Baseline unchanged: **23 files / 239 tests pass**.
