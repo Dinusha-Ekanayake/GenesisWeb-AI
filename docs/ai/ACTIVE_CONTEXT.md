@@ -454,6 +454,19 @@ Milestone 15 is complete for Auth Expiry / 401 Handling only:
 
 Current validation baseline after M15: **23 files / 239 tests pass**.
 
+Milestone 16 is complete for Authenticated End-to-End Smoke Test Runner only:
+
+- Created `scripts/smoke_test_genesis.py` — developer smoke-test script using Python stdlib only (no external dependencies, no venv activation required for running).
+- Uses only `urllib.request`, `urllib.parse`, `urllib.error`, `argparse`, `json`, `sys` — compatible with Python 3.8+ system installs.
+- Default mode is read-only. `--generate` flag opt-in enables POST endpoints (`/genesis/validate`, `/genesis/generate`) that may create a workspace entry or invoke the LLM if `OPENAI_API_KEY` is set.
+- CLI args: `--backend-url` (default `http://127.0.0.1:8000`), `--api-prefix` (default `/api/v1`), `--username` (default `developer`), `--password` (default `devpassword`), `--generate` (flag, default off).
+- Automated checks: `GET /health` (exits immediately if unreachable), `POST /auth/token` (exits if 401 or fail), `GET /genesis/projects`, per-project `GET /projects/{id}` / `/workspace` / `/manifest` / `/graphs` (first project only; 404 skipped, not failed), `POST /genesis/validate` + `POST /genesis/generate` (only with `--generate`).
+- Non-automated section: prints a formatted frontend manual checklist (8 routes + 5 auth flow verification steps) with localhost:3000 URLs.
+- Exit code 0 = all automated checks passed, 1 = any automated check failed.
+- Graceful failure: if backend is unreachable at step 1, prints startup instructions (`venv` activation + uvicorn command) and exits 1 without running further checks.
+- Verified: `python -m py_compile scripts/smoke_test_genesis.py` → syntax OK. `python scripts/smoke_test_genesis.py --help` → correct output. `python scripts/smoke_test_genesis.py --backend-url http://127.0.0.1:9999` → exit code 1 with unreachable message.
+- No frontend source files changed. No backend code changed. No API contracts changed. No tests added (script is self-testing via subprocess). Validation baseline unchanged: **23 files / 239 tests pass**.
+
 ## Next Task
 
-Stop here until the user explicitly approves the next milestone. M15 (Auth Expiry / 401 Handling) is complete. Current validation baseline: 23 files / 239 tests.
+Stop here until the user explicitly approves the next milestone. M16 (Authenticated End-to-End Smoke Test Runner) is complete. Current validation baseline: 23 files / 239 tests.

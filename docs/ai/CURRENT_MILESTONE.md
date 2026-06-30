@@ -1,6 +1,6 @@
 # Current Milestone
 
-Status: complete — Milestone 15 (Auth Expiry / 401 Handling).
+Status: complete — Milestone 16 (Authenticated End-to-End Smoke Test Runner).
 
 ## Completed Milestones
 
@@ -29,6 +29,7 @@ Status: complete — Milestone 15 (Auth Expiry / 401 Handling).
 - M13: Login / Auth UX Integration
 - M14: Auth Guard / Unauthorized Redirect
 - M15: Auth Expiry / 401 Handling
+- M16: Authenticated End-to-End Smoke Test Runner
 
 ## Current Validation Baseline
 
@@ -41,7 +42,7 @@ npm.cmd test
 git diff --check
 ```
 
-Expected baseline (M15): lint pass, build pass, **23 files / 239 tests pass**, diff --check pass (CRLF warnings only).
+Expected baseline (M16): lint pass, build pass, **23 files / 239 tests pass**, diff --check pass (CRLF warnings only). No frontend files were changed in M16 — baseline is identical to M15.
 
 ## Stopping Point
 

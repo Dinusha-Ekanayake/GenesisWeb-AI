@@ -1,5 +1,30 @@
 # Decision Log
 
+## 2026-06-30 11:15 +05:30
+
+Decision: M16 — Create a stdlib-only Python smoke-test script for authenticated end-to-end backend verification. No external dependencies, read-only by default.
+
+Key decisions within M16:
+
+1. **Python stdlib only (`urllib`, `argparse`, `json`, `sys`).** The script must be runnable without activating the project venv — a developer's system Python 3.8+ is sufficient. External deps (`requests`, `httpx`) were deliberately excluded so the script works immediately in any environment where Python is available, including CI with no dep install step.
+
+2. **Read-only default mode with `--generate` opt-in.** The default run covers only idempotent GET endpoints and the auth token POST. Compile endpoints (`POST /genesis/validate`, `POST /genesis/generate`) require `--generate` because they may create workspace state and can invoke the LLM if `OPENAI_API_KEY` is set. This prevents accidental LLM charges or workspace mutations during routine smoke checks.
+
+3. **Exit immediately on health failure, auth failure.** If `/health` is unreachable, no further checks are meaningful and error messages from subsequent 404s would obscure the root cause. Same for auth: if token acquisition fails, every subsequent check would 401. Early exits with actionable instructions (venv activation + uvicorn command, credential hint) make the script useful as a first-run diagnostic tool.
+
+4. **404 on per-project subroutes is SKIP, not FAIL.** `/workspace`, `/manifest`, `/graphs` endpoints return 404 for projects that have not been compiled yet. A new install with empty projects should still be considered passing. Only HTTP errors (5xx) and unexpected non-200 responses trigger FAIL.
+
+5. **Frontend checklist is printed, not automated.** Browser auth flow, redirect behavior, and LocalStorage inspection require a real browser. Automating these would require Playwright (not installed) and would add significant complexity. The printed checklist follows a consistent format matching the manual smoke test instructions from M12.
+
+6. **Script placed in `scripts/` at project root**, not under `frontend/` or `backend/`. It tests the integration between them — neither side owns it. Consistent with other tooling in `scripts/`.
+
+7. **`http()` helper returns `(status | None, body | error_string)`.** Returning `None` for the status when the server is unreachable (vs. returning an error status code) allows callers to distinguish "server responded with an error" from "server was not reachable" without a separate exception path. All callers check `status is None` first.
+
+Files changed:
+- `scripts/smoke_test_genesis.py` — created; ~392 lines; stdlib-only; 6-section smoke test runner
+
+No frontend files changed. No backend files changed. No test files changed. Validation baseline unchanged: **23 files / 239 tests pass**.
+
 ## 2026-06-30 10:45 +05:30
 
 Decision: M15 — Handle backend 401 responses centrally in `fetchWrapper`. Token is cleared and user is redirected to `/login` without using React hooks.
