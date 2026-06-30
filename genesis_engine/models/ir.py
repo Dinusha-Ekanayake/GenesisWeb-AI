@@ -21,3 +21,10 @@ class GenesisIR(BaseModel):
     workflows: List[GenesisWorkflow] = Field(default_factory=list)
     features: List[str] = Field(default_factory=list)
     components: List[str] = Field(default_factory=list)
+    # Rich fields carried forward from approved plan (unused by current planners; available for M26+)
+    api_routes: List[str] = Field(default_factory=list)
+    auth_requirements: List[str] = Field(default_factory=list)
+    roles_permissions: List[str] = Field(default_factory=list)
+    navigation_structure: List[str] = Field(default_factory=list)
+    app_type: str = ""
+    target_users: str = ""

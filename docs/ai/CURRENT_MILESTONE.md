@@ -1,6 +1,6 @@
 # Current Milestone
 
-Status: complete — Milestone 24 (Generated App Package Configs and Build-Ready Skeleton).
+Status: complete — Milestone 25 (Rich App Spec v2 and Approved Plan Compiler Mapping).
 
 ## Completed Milestones
 
@@ -38,6 +38,7 @@ Status: complete — Milestone 24 (Generated App Package Configs and Build-Ready
 - M22: Planning-First Architecture and Tech Stack Proposal
 - M23: Approval-Gated Plan Validation and Generate Flow
 - M24: Generated App Package Configs and Build-Ready Skeleton
+- M25: Rich App Spec v2 and Approved Plan Compiler Mapping
 
 ## Current Validation Baseline
 
@@ -50,12 +51,14 @@ npm.cmd test
 git diff --check
 ```
 
-Expected baseline (M24): lint pass, build pass, **23 files / 239 tests pass**, diff --check pass (CRLF warnings only).
-Frontend product code was not touched in M24.
+Expected baseline (M25): lint pass, build pass, **23 files / 239 tests pass**, diff --check pass (CRLF warnings only).
+Frontend product code was not touched in M25.
 
-Backend/engine files changed in M24 (2 modified plugins):
-- `genesis_engine/plugins/implementations/nextjs_plugin.py` (added `_generate_config_files()` — 8 frontend config files)
-- `genesis_engine/plugins/implementations/fastapi_plugin.py` (added `_generate_config_files()` — 3 backend config files)
+Engine/backend files changed in M25 (4 modified files):
+- `genesis_engine/models/spec.py` (added 13 optional rich fields to `ProjectSpecification`)
+- `genesis_engine/models/ir.py` (added 6 optional rich fields to `GenesisIR`)
+- `genesis_engine/core/planning_engine.py` (imported `GenesisEntity`; updated `_convert_spec_to_ir()`)
+- `backend/app/api/genesis_controller.py` (updated plan→spec conversion to map all 13 rich fields)
 
 ## Stopping Point
 

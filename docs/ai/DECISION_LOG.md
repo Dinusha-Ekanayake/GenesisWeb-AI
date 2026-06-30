@@ -1,5 +1,46 @@
 # Decision Log
 
+## 2026-06-30 22:00 +05:30
+
+Decision: M25 — Rich App Spec v2 and Approved Plan Compiler Mapping. Extend `ProjectSpecification` and `GenesisIR` with rich plan fields so the full approved plan is preserved through the compiler pipeline, not just pages and components.
+
+**Key decisions:**
+
+1. **All 13 new `ProjectSpecification` fields are optional with safe defaults.** Existing callers of `POST /genesis/generate` with simple specs (`{project_id, name, description, pages, components}`) continue to work unchanged. Pydantic uses `default_factory=list` or `""` for all new fields.
+
+2. **`technology_stack: Dict[str, Any]` is added as a new field alongside the existing `frontend/backend/database/authentication/deployment` dicts.** No conflict — the existing split fields are still populated by the controller. The new `technology_stack` field stores the full nested `plan.technology_stack.model_dump()` for future planners to read the complete architecture intent.
+
+3. **`ir.entities` is now populated from `spec.entities` via `_convert_spec_to_ir()`.** `DatabasePlanner` already reads `ir.entities` and produces `DatabaseTableNode` rows with `primary_key="id"` (hardcoded). All 4 rule checks pass: `RequirePrimaryKeyRule` (primary_key is set), `ApiToDatabaseMappingRule` (ApiPlanner never sets `target_entity`), `SecureMutationsRule` (POST endpoints have `requires_auth=True`), `OrphanPageRule` (pages derived from features). Entity-derived tables appear in `planning_report.total_entities` — now correctly non-zero for rich specs.
+
+4. **`DependencyPlanner` automatically adds `sqlalchemy` when entities are present.** `len(database_graph.tables) > 0` triggers the sqlalchemy dependency. This is semantically correct — entity → database table → ORM dependency. No code change needed.
+
+5. **No planner code was changed.** `FeaturePlanner`, `PagePlanner`, `ComponentPlanner`, `ApiPlanner`, `DependencyPlanner`, `DatabasePlanner` — all untouched. The new IR fields are available to future planners but not yet consumed. This keeps the planner surface minimal and avoids unintended behavior.
+
+6. **Generated code is unchanged for this milestone.** `FastApiPlugin` still generates `main.py` from `api_graph.endpoints` (derived from `ir.features`/pages, not entity api_routes). `NextJsPlugin` still generates pages from `page_graph` and components from spec components. M26+ will upgrade generators to use entities and api_routes from the IR.
+
+7. **`spec.json` now contains the full approved plan intent.** `workspace/{id}/spec.json` serializes `ProjectSpecification.model_dump()` which now includes all 13 rich fields. Future milestones can re-read `spec.json` to get entities, api_routes, auth rules, navigation, and tech stack without needing to re-query the planning service.
+
+**Files changed:**
+- `genesis_engine/models/spec.py` — 13 optional fields added
+- `genesis_engine/models/ir.py` — 6 optional fields added (`GenesisEntity` list already existed)
+- `genesis_engine/core/planning_engine.py` — `GenesisEntity` import + `_convert_spec_to_ir()` updated
+- `backend/app/api/genesis_controller.py` — `approve_and_generate()` plan→spec conversion extended to 13 fields
+
+**Validation (rich_spec_001 — CRM, 7 pages, 8 components, 6 entities, 10 API routes):**
+- `spec.json` contains all 13 rich fields: `app_type=crm`, `target_users`, `entities=[Customer,Deal,Activity,User,Team,Note]`, `api_routes=[10]`, `auth_requirements`, `roles_permissions`, `navigation_structure`, `technology_stack={7 keys}`, `assumptions`, `warnings`, `architecture_summary`, `deployment_target=docker`, `tools_libraries` ✓
+- `artifacts/approved_plan.json` contains all plan data, approval_status=APPROVED ✓
+- `artifacts/planning_report.json`: total_entities=6, total_features=7, total_pages=7, total_apis=14, integrity_score=100, rule_status=PASS ✓
+- `artifacts/database_graph.json`: 6 tables (Customer, Deal, Activity, User, Team, Note) ✓
+- `artifacts/dependency_graph.json`: fastapi + sqlalchemy (sqlalchemy added because entities present) ✓
+- Generated frontend: 7 pages (activities, customers, dashboard, deals, reports, settings, team), 8 components ✓
+- `npm install` + `npm run build`: PASS — 7 routes compiled, all static ✓
+- Generated `backend/app/main.py` + `__init__.py`: `py_compile` PASS ✓
+- `plan_genesis.py`: PASS ✓
+- `approve_plan_genesis.py` (7 sections): PASS ✓
+- `smoke_test_genesis.py --generate`: PASS ✓
+- `py_compile` all 7 M25-touched files: PASS ✓
+- Frontend baseline unchanged: **23 files / 239 tests pass**
+
 ## 2026-06-30 20:00 +05:30
 
 Decision: M24 — Generated App Package Configs and Build-Ready Skeleton. Extend existing plugins to emit package and config files so generated app directories are structurally installable.

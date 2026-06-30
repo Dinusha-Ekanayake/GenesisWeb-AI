@@ -2,7 +2,7 @@ import time
 from ..interfaces.modules import Planner
 from ..models.spec import ProjectSpecification
 from ..models.outputs import GenerationPlan, ArchitectureDecisionRecord, PlanningReport, RuleSeverity
-from ..models.ir import GenesisIR
+from ..models.ir import GenesisIR, GenesisEntity
 from ..utils.workspace_adapter import WorkspaceAdapter
 from ..rules.registry import RuleRegistry
 from ..rules.base import RuleContext
@@ -43,13 +43,23 @@ class PlanningEngine(Planner):
         self.rule_registry.register(OrphanPageRule())
         
     def _convert_spec_to_ir(self, spec: ProjectSpecification) -> GenesisIR:
+        entities = [
+            GenesisEntity(name=e, attributes={}, relations=[])
+            for e in spec.entities
+        ]
         return GenesisIR(
             project_id=spec.project_id,
-            entities=[],
+            entities=entities,
             roles=[],
             workflows=[],
             features=spec.pages,
             components=spec.components,
+            api_routes=spec.api_routes,
+            auth_requirements=spec.auth_requirements,
+            roles_permissions=spec.roles_permissions,
+            navigation_structure=spec.navigation_structure,
+            app_type=spec.app_type,
+            target_users=spec.target_users,
         )
         
     def validate_blueprint(self, spec: ProjectSpecification):

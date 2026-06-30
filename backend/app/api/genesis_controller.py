@@ -172,13 +172,28 @@ async def approve_and_generate(body: dict):
             ),
         )
 
-    # 5. Convert ProposedApplicationPlan → ProjectSpecification
+    # 5. Convert ProposedApplicationPlan → ProjectSpecification (v2: carries all rich plan fields)
     spec = ProjectSpecification(
         project_id=plan.project_id,
         name=plan.name,
         description=plan.description,
         pages=plan.pages,
         components=plan.components,
+        # Rich plan fields — persisted to spec.json and carried into GenesisIR
+        entities=plan.entities,
+        api_routes=plan.api_routes,
+        auth_requirements=plan.auth_requirements,
+        roles_permissions=plan.roles_permissions,
+        navigation_structure=plan.navigation_structure,
+        technology_stack=plan.technology_stack.model_dump(),
+        tools_libraries=plan.tools_libraries,
+        deployment_target=plan.deployment_target,
+        app_type=plan.app_type,
+        target_users=plan.target_users,
+        architecture_summary=plan.architecture_summary,
+        assumptions=plan.assumptions,
+        warnings=plan.warnings,
+        # Framework/infra dicts (unchanged from M23)
         theme={},
         authentication={
             "provider": plan.technology_stack.auth.provider,

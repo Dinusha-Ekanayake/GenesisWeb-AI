@@ -958,7 +958,56 @@ docker-compose.yml  Dockerfile.frontend  Dockerfile.backend
 
 ## Next Task
 
-Stop here until the user explicitly approves the next milestone. M24 (Generated App Package Configs and Build-Ready Skeleton) is complete. Current validation baseline: 23 files / 239 tests.
+Stop here until the user explicitly approves the next milestone. M25 (Rich App Spec v2 and Approved Plan Compiler Mapping) is complete. Current validation baseline: 23 files / 239 tests.
+
+Milestone 25 is complete for Rich App Spec v2 and Approved Plan Compiler Mapping only:
+
+**Goal:** Extend the compiler data contract so approved plans carry all rich fields (entities, api_routes, auth, navigation, tech stack, etc.) through the full pipeline and into `spec.json`. No generator output changes.
+
+**4 files changed (models + planning engine + controller only — no plugins, no orchestrator, no scripts):**
+
+1. `genesis_engine/models/spec.py` — added 13 optional fields to `ProjectSpecification`:
+   - `entities: List[str]`, `api_routes: List[str]`, `auth_requirements: List[str]`, `roles_permissions: List[str]`, `navigation_structure: List[str]`, `tools_libraries: List[str]`, `assumptions: List[str]`, `warnings: List[str]`
+   - `deployment_target: str = ""`, `app_type: str = ""`, `target_users: str = ""`, `architecture_summary: str = ""`
+   - `technology_stack: Dict[str, Any]` (full nested stack snapshot)
+   - All defaults are safe — direct `/genesis/generate` callers unaffected.
+
+2. `genesis_engine/models/ir.py` — added 6 optional fields to `GenesisIR`:
+   `api_routes`, `auth_requirements`, `roles_permissions`, `navigation_structure` (all `List[str]`), `app_type: str = ""`, `target_users: str = ""`
+   (`entities: List[GenesisEntity]` already existed; now populated instead of always empty.)
+
+3. `genesis_engine/core/planning_engine.py` — updated `_convert_spec_to_ir()`:
+   - Added `GenesisEntity` import
+   - Builds `entities=[GenesisEntity(name=e, attributes={}, relations=[]) for e in spec.entities]`
+   - Passes all 6 new IR fields from spec
+
+4. `backend/app/api/genesis_controller.py` — extended plan→spec conversion in `approve_and_generate()` to map all 13 new fields from `ProposedApplicationPlan` → `ProjectSpecification`.
+
+**Downstream effects (automatic, no code changes needed):**
+- `DatabasePlanner` creates `DatabaseTableNode` rows from `ir.entities` (was always empty before). Each table gets `primary_key="id"`. All 4 rules pass.
+- `DependencyPlanner` adds `sqlalchemy` when `len(database_graph.tables) > 0`. Correct behavior.
+- `planning_report.total_entities` now reflects actual entity count (was always 0 before for approved plans).
+
+**Generated code unchanged:** Plugins still read `page_graph` and `component_graph` only. Entity API routes and database tables are in the pipeline graphs but not yet consumed by generators (M26+ scope).
+
+**Validation (rich_spec_001 — CRM, 7 pages, 8 components, 6 entities, 10 API routes):**
+- `spec.json` contains all 13 rich fields: `app_type=crm`, 6 entities, 10 api_routes, technology_stack nested dict ✓
+- `artifacts/database_graph.json`: 6 tables (Customer, Deal, Activity, User, Team, Note) ✓
+- `artifacts/dependency_graph.json`: fastapi + sqlalchemy ✓
+- `planning_report.total_entities=6`, integrity_score=100, rule_validation_status=PASS ✓
+- `npm install` + `npm run build`: PASS — 7 CRM routes compiled as static pages ✓
+- `backend/app/main.py` + `__init__.py`: `py_compile` PASS ✓
+- All 3 smoke tests: PASS ✓
+- All 7 `py_compile` checks: PASS ✓
+
+**Direct /genesis/generate backward compatibility:** Verified — `smoke_test_genesis.py --generate` passes. Simple specs without new fields use defaults.
+
+**Frontend validation after M25:** Frontend not touched. Baseline unchanged: **23 files / 239 tests pass**.
+
+**Remaining risks / deferred to future milestones:**
+- Entity names from the plan are simple strings; entity `attributes` and `relations` are empty. `DatabasePlanner` creates valid table nodes but with no column definitions. M26 will add real CRUD schema from spec entities.
+- `ir.api_routes` (the plan's proposed API routes as strings) is not yet used by `ApiPlanner`. Current `ApiPlanner` still generates endpoints from `ir.features` (page names). M26 will wire these.
+- `ir.navigation_structure` is not yet used by any planner or plugin. M25+ will use it for layout generation.
 
 Milestone 24 is complete for Generated App Package Configs and Build-Ready Skeleton only:
 
