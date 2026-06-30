@@ -20,7 +20,7 @@ function deriveStats(projects: ProjectData[]): StatTile[] {
     { label: "Failed", value: projects.filter((p) => p.status === "FAILED").length, icon: AlertTriangle },
     {
       label: "Deployed",
-      value: projects.filter((p) => p.deployment_manifest?.build_status === "COMPLETED").length,
+      value: projects.filter((p) => Boolean(p.deployment_manifest)).length,
       icon: Package,
     },
   ];

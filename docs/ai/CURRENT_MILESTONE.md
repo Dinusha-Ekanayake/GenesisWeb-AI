@@ -1,6 +1,6 @@
 # Current Milestone
 
-Status: complete — Milestone 10 (Telemetry Surface).
+Status: complete — Milestone 11 (Final Route QA and Production Readiness Pass).
 
 ## Completed Milestones
 
@@ -24,6 +24,7 @@ Status: complete — Milestone 10 (Telemetry Surface).
 - M8: Search Route / Global Search Surface
 - M9: Settings / Preferences Surface
 - M10: Telemetry Surface
+- M11: Final Route QA and Production Readiness Pass
 
 ## Current Validation Baseline
 
@@ -36,7 +37,7 @@ npm.cmd test
 git diff --check
 ```
 
-Expected baseline (M10): lint pass, build pass, **22 files / 222 tests pass**, diff --check pass (CRLF warnings only).
+Expected baseline (M11): lint pass, build pass, **22 files / 222 tests pass**, diff --check pass (CRLF warnings only).
 
 ## Stopping Point
 

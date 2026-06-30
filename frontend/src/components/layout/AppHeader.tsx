@@ -2,7 +2,6 @@
 
 import { PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Breadcrumbs } from "./Breadcrumbs";
 import { useShell } from "./ShellProvider";
 
@@ -30,7 +29,6 @@ export function AppHeader() {
       </div>
 
       <div className="flex shrink-0 items-center gap-2">
-        <Badge variant="secondary">Shell Ready</Badge>
         <Button
           type="button"
           variant="ghost"

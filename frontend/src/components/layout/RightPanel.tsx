@@ -1,7 +1,6 @@
 "use client";
 
 import { Activity, Info } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { useShell } from "./ShellProvider";
 
@@ -19,17 +18,14 @@ export function RightPanel() {
     >
       <div className="flex h-full flex-col">
         <div className="border-b border-border px-4 py-4">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="text-sm font-semibold text-foreground">Inspector</h2>
-            <Badge variant="outline">Foundation</Badge>
-          </div>
+          <h2 className="text-sm font-semibold text-foreground">Inspector</h2>
         </div>
 
         <div className="space-y-4 overflow-y-auto p-4">
           <div className="flex items-start gap-3 rounded-md border border-border bg-surface-raised p-3">
             <Info className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--text-tertiary)]" aria-hidden="true" />
             <p className="text-sm leading-6 text-[color:var(--text-secondary)]">
-              Run details, traces, and artifact inspection will attach here during later milestones.
+              Open a Run to inspect its surfaces — planning report, architecture graphs, workspace files, and artifact bundle.
             </p>
           </div>
 

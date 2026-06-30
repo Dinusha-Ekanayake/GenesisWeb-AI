@@ -201,10 +201,10 @@ describe("ControlPlaneHome", () => {
   });
 
   // Stats — deployed count
-  it("stats strip shows Deployed count only for COMPLETED deployment manifests", () => {
+  it("stats strip shows Deployed count for projects with a deployment manifest", () => {
     mockUseProjects.mockReturnValue({ data: TWO_PROJECTS, isLoading: false, error: null });
     render(<ControlPlaneHome />);
-    // PROJECT_SUCCESS has build_status: "COMPLETED" → 1 deployed
+    // PROJECT_SUCCESS has deployment_manifest → 1 deployed
     // PROJECT_FAILED has no manifest → 0
     expect(screen.getByText("Deployed")).toBeInTheDocument();
   });

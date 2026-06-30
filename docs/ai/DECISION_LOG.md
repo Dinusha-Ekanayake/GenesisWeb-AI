@@ -1,5 +1,36 @@
 # Decision Log
 
+## 2026-06-30 09:35 +05:30
+
+Decision: M11 QA pass — removed stale/fake UI labels, updated misleading metric logic. No new features added.
+
+QA findings and fixes:
+
+1. **Removed fake "Shell Ready" badge from `AppHeader.tsx`**. The badge was hardcoded and checked no real state. Every session is "Shell Ready" unconditionally, making the badge meaningless and potentially misleading to users testing with no backend. Removed entirely; the header communicates panel state via toggle buttons and breadcrumbs.
+
+2. **Removed stale "Foundation" milestone badge from `RightPanel.tsx`**. This was an M2 artifact labeling the shell as "Foundation" which is now misleading post-M11. Removed.
+
+3. **Updated stale copy in `RightPanel.tsx`**. "Run details, traces, and artifact inspection will attach here during later milestones." was false — run surfaces are implemented in M5.1–M5.6. Updated to "Open a Run to inspect its surfaces — planning report, architecture graphs, workspace files, and artifact bundle."
+
+4. **Fixed misleading "Deployed" stat in `ControlPlaneHome.tsx`**. Was filtering `build_status === "COMPLETED"`, but `build_status: string` is unconstrained in the type. Different fixtures used "COMPLETED" vs "SUCCESS". Changed to `Boolean(p.deployment_manifest)` — presence of any deployment manifest is the correct signal. Updated matching test comment.
+
+5. **Removed stale "in this milestone" from Team page copy**. "No team backend contract is available in this milestone." → "No team backend contract is available."
+
+6. **Updated `app-shell.test.tsx`** to remove the assertion on "Shell Ready" text since the badge was removed.
+
+No new routes, no new features, no backend changes. Route/link audit found all 16 target routes resolving correctly with proper `backendProjectId` usage throughout.
+
+Files changed:
+- `frontend/src/components/layout/AppHeader.tsx` — removed Badge import + Shell Ready badge
+- `frontend/src/components/layout/RightPanel.tsx` — removed Badge import + Foundation badge; updated copy
+- `frontend/src/components/dashboard/ControlPlaneHome.tsx` — fixed Deployed stat filter
+- `frontend/src/app/(app)/team/page.tsx` — removed stale "in this milestone"
+- `frontend/tests/app-shell.test.tsx` — removed assertion on removed badge
+- `frontend/tests/control-plane-home.test.tsx` — updated Deployed stat test comment
+- `docs/ai/ACTIVE_CONTEXT.md` — updated
+- `docs/ai/DECISION_LOG.md` — updated
+- `docs/ai/CURRENT_MILESTONE.md` — updated to M11 complete
+
 ## 2026-06-30 09:20 +05:30
 
 Decision: Implement `/telemetry` as a metadata observability summary page using only real `useProjects()` + adapter data. No live telemetry pipeline, time-series data, analytics backend, or fake charts.

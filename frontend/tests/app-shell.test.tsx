@@ -21,7 +21,6 @@ describe("AppShell", () => {
     expect(screen.getByLabelText("Global navigation")).toBeInTheDocument();
     expect(screen.getByLabelText("Context navigation")).toBeInTheDocument();
     expect(screen.getByLabelText("Main work surface")).toHaveTextContent("Dashboard content");
-    expect(screen.getByText("Shell Ready")).toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: "Projects" }).some((link) => link.getAttribute("aria-current") === "page")).toBe(true);
   });
 
