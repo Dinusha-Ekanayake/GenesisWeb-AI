@@ -363,6 +363,25 @@ Current validation status after Milestone 8:
 - `npm.cmd test` passes: **20 files, 178 tests**.
 - `git diff --check` passes with CRLF warnings only.
 
+Milestone 9 is complete for the Settings / Preferences Surface only:
+
+- Created `frontend/src/components/settings/AppearanceCard.tsx` — "use client"; calls `useTheme()` from `next-themes`. Renders three `aria-pressed` buttons: System / Light / Dark. Active button is highlighted with accent colors. `next-themes` is already wired in `Providers.tsx` with `attribute="class"` and `defaultTheme="system"`. Both `.dark` and `.light` CSS token classes exist in `tokens.css`.
+- Created `frontend/src/components/settings/ShellPreferencesCard.tsx` — "use client"; calls `useShell()`. Renders two `ToggleRow` items (Context Panel, Right Panel) each showing current state ("Expanded"/"Collapsed"), a toggle button with `aria-label` and `aria-pressed`, and a "Reset to defaults" button that calls `setContextPanelExpanded(true)` + `setRightPanelExpanded(false)` — restoring the `ShellProvider` defaults without directly touching localStorage.
+- Created `frontend/src/components/settings/ShortcutReferenceCard.tsx` — pure component (no hooks); renders a two-column table of all 8 keyboard shortcuts defined in M7: Ctrl/Cmd+K, Escape, G D, G C, G P, G R, Ctrl+\\, Ctrl+P. Uses `<kbd>` for key display.
+- Created `frontend/src/components/settings/SettingsPage.tsx` — server component (no "use client"); composes the three cards inside `RouteScaffold(eyebrow: "Preferences", title: "Settings")`. Always-visible note: "Settings are stored locally in this browser and device. They are not synced to any backend."
+- Modified `frontend/src/app/(app)/settings/page.tsx` — replaced `LimitedState("Settings deferred")` with `<SettingsPage />`. The route remains at `/settings`.
+- Created `frontend/tests/settings.test.tsx` — 20 tests: heading, local-only note, not-synced note, appearance section + all three theme buttons, active theme aria-pressed, three setTheme calls, shell preferences section, context/right panel aria-pressed state, two toggle calls, reset call with correct args, keyboard shortcuts section, three specific shortcut entries, no fake account/billing/team settings.
+
+What is exposed: context panel expanded/collapsed (localStorage via ShellProvider), right panel expanded/collapsed (localStorage via ShellProvider), color theme dark/light/system (localStorage via next-themes), shortcut reference (read-only), reset to defaults.
+What is intentionally out of scope: backend user settings, account/profile, billing, team management, cloud-synced preferences, font/density/language.
+
+Current validation status after Milestone 9:
+
+- `npm.cmd run lint` passes.
+- `npm.cmd run build` passes; `/settings` listed as `○ (Static)` at 2.94 kB.
+- `npm.cmd test` passes: **21 files, 198 tests**.
+- `git diff --check` passes with CRLF warnings only.
+
 ## Next Task
 
-Stop here until the user explicitly approves the next milestone. M8 (Search Route / Global Search Surface) is complete. Current validation baseline: 20 files / 178 tests.
+Stop here until the user explicitly approves the next milestone. M9 (Settings / Preferences Surface) is complete. Current validation baseline: 21 files / 198 tests.

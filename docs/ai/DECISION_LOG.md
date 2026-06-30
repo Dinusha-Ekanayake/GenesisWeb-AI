@@ -1,5 +1,37 @@
 # Decision Log
 
+## 2026-06-30 09:00 +05:30
+
+Decision: Implement `/settings` as local-only preferences — shell panel toggles, theme switching, shortcut reference, and reset. No backend settings introduced.
+
+Key decisions within M9:
+
+1. **Theme switching is in scope.** `next-themes` `ThemeProvider` was already wired in `Providers.tsx` with `attribute="class"` and `defaultTheme="system"`. Both `.dark` and `.light` CSS token classes exist in `tokens.css`. This is a real, working feature — not a fake toggle. The `AppearanceCard` calls `useTheme()` from `next-themes`.
+
+2. **Shell preference reset calls `setContextPanelExpanded`/`setRightPanelExpanded`, not localStorage directly.** This respects the `ShellProvider` contract — all localStorage writes go through the provider's `useEffect`. The reset function is idempotent.
+
+3. **`SettingsPage.tsx` is a server component.** It does not call any hooks. Its client-side sub-components (`AppearanceCard`, `ShellPreferencesCard`) carry their own `"use client"` directives. `ShortcutReferenceCard` is pure (no hooks, no client directive). This follows the narrowest-possible client boundary principle.
+
+4. **Shortcut reference is a static table of 8 entries.** It matches the shortcuts implemented in M7 (`useKeyboardShortcuts.ts` + `commands.ts`). No dynamic lookup of active shortcuts — the table is intentional documentation, not generated from runtime state.
+
+5. **Tests mock `useShell` and `next-themes`'s `useTheme` at module level.** This avoids needing `ShellProvider` or `ThemeProvider` in the test render tree, following the same pattern established in `command-palette.test.tsx` and `control-plane-home.test.tsx`.
+
+Files affected:
+
+- `frontend/src/components/settings/AppearanceCard.tsx` — new; "use client"; dark/light/system theme buttons
+- `frontend/src/components/settings/ShellPreferencesCard.tsx` — new; "use client"; context/right panel toggles + reset
+- `frontend/src/components/settings/ShortcutReferenceCard.tsx` — new; pure; 8-row shortcut table
+- `frontend/src/components/settings/SettingsPage.tsx` — new; server component composition wrapper
+- `frontend/src/app/(app)/settings/page.tsx` — replaced LimitedState with `<SettingsPage />`
+- `frontend/tests/settings.test.tsx` — new; 20 tests
+- `docs/ai/ACTIVE_CONTEXT.md` — updated
+- `docs/ai/DECISION_LOG.md` — updated
+- `docs/ai/CURRENT_MILESTONE.md` — updated to M9 complete
+
+Risk: Low. All state management delegates to existing providers (`ShellProvider`, `next-themes`). No new localStorage keys introduced. No backend calls. The settings page renders in the existing `AppShell` which already provides `ShellProvider` context. In tests, both providers are mocked at module level.
+
+Outcome: Lint, build, and all 198 tests (21 files) pass. `/settings` is now a real local preferences page: theme selection (dark/light/system backed by `next-themes`), shell panel toggles (backed by `ShellProvider`), reset to defaults, and keyboard shortcut reference. Honest local-only note is always visible.
+
 ## 2026-06-30 02:30 +05:30
 
 Decision: Implement `/search` as a client-side filter over `useProjects()` data — no backend search endpoint, no fake results.
