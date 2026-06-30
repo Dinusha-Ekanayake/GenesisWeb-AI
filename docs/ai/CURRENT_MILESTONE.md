@@ -1,6 +1,6 @@
 # Current Milestone
 
-Status: complete — Milestone 9 (Settings / Preferences Surface).
+Status: complete — Milestone 10 (Telemetry Surface).
 
 ## Completed Milestones
 
@@ -23,6 +23,7 @@ Status: complete — Milestone 9 (Settings / Preferences Surface).
 - M7: Command Palette and Keyboard Shortcuts
 - M8: Search Route / Global Search Surface
 - M9: Settings / Preferences Surface
+- M10: Telemetry Surface
 
 ## Current Validation Baseline
 
@@ -35,7 +36,7 @@ npm.cmd test
 git diff --check
 ```
 
-Expected baseline (M9): lint pass, build pass, **21 files / 198 tests pass**, diff --check pass (CRLF warnings only).
+Expected baseline (M10): lint pass, build pass, **22 files / 222 tests pass**, diff --check pass (CRLF warnings only).
 
 ## Stopping Point
 

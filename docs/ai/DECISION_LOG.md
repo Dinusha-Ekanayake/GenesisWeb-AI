@@ -1,5 +1,40 @@
 # Decision Log
 
+## 2026-06-30 09:20 +05:30
+
+Decision: Implement `/telemetry` as a metadata observability summary page using only real `useProjects()` + adapter data. No live telemetry pipeline, time-series data, analytics backend, or fake charts.
+
+Key decisions within M10:
+
+1. **All metrics derived client-side from `ProjectData[]`.** `deriveTelemetryMetrics()` in `telemetry-metrics.ts` computes status counts, capability coverage counts, and average planning duration from the existing adapter output. No new backend endpoints introduced.
+
+2. **Capability counts use `toRunCapabilities()` directly.** Rather than duplicating the capability detection logic, `deriveTelemetryMetrics` calls `toRunCapabilities(p)` per project. This keeps capability derivation DRY and consistent with what the run detail surfaces show.
+
+3. **`hasArchitectureGraphs` will always be 0 in test fixtures.** The architecture graph fields (`architectureGraphs`, `architecture_graphs`, `graphs`) are part of `BackendProjectWithOptionalSurfaces` extension, not `ProjectData`. Real backend responses include these, but typed test fixtures cannot set them. The 0/N display is honest — it correctly reflects fixture state.
+
+4. **Avg planning duration is null-safe.** When no projects have `planning_report.planning_duration_ms > 0`, `avgPlanningDurationMs` is `null` and the metric card shows "—". Zero is excluded to avoid counting un-initialized values.
+
+5. **Recent runs capped at 8.** `RecentRunTelemetry` slices `projects.slice(0, 8)` to avoid rendering large unbounded lists. Run links follow the established `backendProjectId`-based href pattern: `/projects/{id}/runs/{id}`.
+
+6. **Scope note is always visible.** The "Telemetry currently summarizes project and latest-known-run metadata only. No live telemetry pipeline..." note renders outside the loading/error/empty conditional, so it's visible in all states. Matches the M8 pattern from `GlobalSearchPage`.
+
+7. **`TelemetryPage.tsx` is "use client".** All metrics and hooks (`useProjects`) are client-side. The route page file (`telemetry/page.tsx`) is a minimal server wrapper.
+
+Files affected:
+
+- `frontend/src/components/telemetry/telemetry-metrics.ts` — new; pure derivation functions
+- `frontend/src/components/telemetry/MetricCard.tsx` — new; single metric tile
+- `frontend/src/components/telemetry/StatusBreakdown.tsx` — new; status counts list with `StatusBadge`
+- `frontend/src/components/telemetry/CapabilityCoverage.tsx` — new; "X / Y" coverage rows for 4 surfaces
+- `frontend/src/components/telemetry/RecentRunTelemetry.tsx` — new; recent runs list with `backendProjectId` links
+- `frontend/src/components/telemetry/TelemetryPage.tsx` — new; "use client"; assembled page
+- `frontend/src/app/(app)/telemetry/page.tsx` — replaced static LimitedState with `<TelemetryPage />`
+- `frontend/tests/telemetry.test.tsx` — new; 23 tests
+- `frontend/tests/route-architecture.test.tsx` — added telemetry route smoke test
+- `docs/ai/ACTIVE_CONTEXT.md` — updated
+- `docs/ai/DECISION_LOG.md` — updated
+- `docs/ai/CURRENT_MILESTONE.md` — updated to M10 complete
+
 ## 2026-06-30 09:00 +05:30
 
 Decision: Implement `/settings` as local-only preferences — shell panel toggles, theme switching, shortcut reference, and reset. No backend settings introduced.

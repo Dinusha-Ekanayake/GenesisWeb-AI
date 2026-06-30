@@ -4,6 +4,7 @@ import ProjectsPage from "../src/app/(app)/projects/page";
 import RunsPage from "../src/app/(app)/runs/page";
 import CompilerPage from "../src/app/(app)/compiler/page";
 import SearchPage from "../src/app/(app)/search/page";
+import TelemetryPage from "../src/app/(app)/telemetry/page";
 import type { ProjectData } from "../src/app/dashboard/types/genesis";
 
 const useProjectsMock = vi.fn();
@@ -70,5 +71,14 @@ describe("target route architecture", () => {
 
     expect(screen.getByRole("heading", { name: "Search" })).toBeInTheDocument();
     expect(screen.getByLabelText("Search")).toBeInTheDocument();
+  });
+
+  it("renders the telemetry page with a Telemetry heading and scope note", () => {
+    useProjectsMock.mockReturnValue({ data: [], isLoading: false, error: null });
+
+    render(<TelemetryPage />);
+
+    expect(screen.getByRole("heading", { name: "Telemetry" })).toBeInTheDocument();
+    expect(screen.getByText(/metadata only/i)).toBeInTheDocument();
   });
 });

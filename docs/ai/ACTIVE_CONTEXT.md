@@ -1,6 +1,6 @@
 # Active Context
 
-Last updated: 2026-06-29 17:50 +05:30
+Last updated: 2026-06-30 09:20 +05:30
 
 This repository is the Genesis Engine implementation. The frontend is being migrated from prototype UI toward the v3.0 specification. The product is a Specification Compiler platform, not a chatbot, CRUD dashboard, generic admin panel, or code generator UI.
 
