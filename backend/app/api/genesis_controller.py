@@ -181,6 +181,7 @@ async def approve_and_generate(body: dict):
         components=plan.components,
         # Rich plan fields — persisted to spec.json and carried into GenesisIR
         entities=plan.entities,
+        entity_definitions=[ed.model_dump() for ed in plan.entity_definitions],
         api_routes=plan.api_routes,
         auth_requirements=plan.auth_requirements,
         roles_permissions=plan.roles_permissions,

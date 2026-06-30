@@ -13,6 +13,7 @@ class ProjectSpecification(BaseModel):
 
     # --- Rich plan fields (optional; populated by approve-and-generate, ignored by direct /generate) ---
     entities: List[str] = Field(default_factory=list)
+    entity_definitions: List[Dict[str, Any]] = Field(default_factory=list)
     api_routes: List[str] = Field(default_factory=list)
     auth_requirements: List[str] = Field(default_factory=list)
     roles_permissions: List[str] = Field(default_factory=list)

@@ -2,6 +2,17 @@ from pydantic import BaseModel, Field
 from typing import List, Optional
 
 
+class EntityFieldDef(BaseModel):
+    name: str
+    type: str = "string"
+    required: bool = True
+
+
+class EntityDefinition(BaseModel):
+    name: str
+    fields: List[EntityFieldDef] = Field(default_factory=list)
+
+
 # --- Technology stack sub-models ---
 
 class FrontendStack(BaseModel):
@@ -110,6 +121,7 @@ class ProposedApplicationPlan(BaseModel):
     architecture_summary: str = ""
     assumptions: List[str] = Field(default_factory=list)
     warnings: List[str] = Field(default_factory=list)
+    entity_definitions: List[EntityDefinition] = Field(default_factory=list)
     validation_status: str = "PENDING"
     approval_status: str = "PENDING"
     generation_method: str = "llm"  # "llm" or "deterministic_fallback"

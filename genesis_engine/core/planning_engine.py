@@ -3,6 +3,83 @@ from ..interfaces.modules import Planner
 from ..models.spec import ProjectSpecification
 from ..models.outputs import GenerationPlan, ArchitectureDecisionRecord, PlanningReport, RuleSeverity
 from ..models.ir import GenesisIR, GenesisEntity
+
+# ---------------------------------------------------------------------------
+# Field type normalisation (canonical internal representation)
+# ---------------------------------------------------------------------------
+
+_FIELD_TYPE_MAP: dict = {
+    "string": "string", "str": "string", "text": "string",
+    "email": "string", "url": "string", "date": "string", "datetime": "string",
+    "integer": "integer", "int": "integer",
+    "number": "number", "float": "number", "decimal": "number",
+    "boolean": "boolean", "bool": "boolean",
+}
+
+# ---------------------------------------------------------------------------
+# Field inference tables keyed by app_type → entity_name_lower → field specs
+# Each spec tuple: (field_name, base_type, required)
+# ---------------------------------------------------------------------------
+
+_DEFAULT_ENTITY_FIELDS: list = [
+    ("name", "string", True),
+    ("description", "string", False),
+]
+
+_ENTITY_FIELDS_BY_APP_TYPE: dict = {
+    "crm": {
+        "customer": [
+            ("name", "string", True),
+            ("email", "string", False),
+            ("phone", "string", False),
+            ("company", "string", False),
+            ("status", "string", False),
+        ],
+        "deal": [
+            ("title", "string", True),
+            ("value", "number", False),
+            ("stage", "string", False),
+            ("customer_id", "integer", False),
+        ],
+        "activity": [
+            ("title", "string", True),
+            ("type", "string", False),
+            ("due_date", "string", False),
+            ("completed", "boolean", False),
+        ],
+        "user": [
+            ("name", "string", True),
+            ("email", "string", False),
+            ("role", "string", False),
+        ],
+        "team": [
+            ("name", "string", True),
+            ("description", "string", False),
+        ],
+        "note": [
+            ("title", "string", True),
+            ("content", "string", False),
+        ],
+        "report": [
+            ("title", "string", True),
+            ("type", "string", False),
+            ("content", "string", False),
+        ],
+    },
+}
+
+
+def _infer_attributes(entity_name: str, app_type: str) -> dict:
+    """Return Dict[field_name, type_str] for an entity, inferring from app_type.
+    Optional fields use a '?' suffix on the type string.
+    """
+    lower = entity_name.lower()
+    app_map = _ENTITY_FIELDS_BY_APP_TYPE.get(app_type.lower(), {})
+    specs = app_map.get(lower, _DEFAULT_ENTITY_FIELDS)
+    attrs: dict = {}
+    for field_name, field_type, required in specs:
+        attrs[field_name] = field_type if required else field_type + "?"
+    return attrs
 from ..utils.workspace_adapter import WorkspaceAdapter
 from ..rules.registry import RuleRegistry
 from ..rules.base import RuleContext
@@ -43,10 +120,31 @@ class PlanningEngine(Planner):
         self.rule_registry.register(OrphanPageRule())
         
     def _convert_spec_to_ir(self, spec: ProjectSpecification) -> GenesisIR:
-        entities = [
-            GenesisEntity(name=e, attributes={}, relations=[])
-            for e in spec.entities
-        ]
+        # Build a lookup from explicit entity_definitions if the plan provided them
+        def_lookup: dict = {}
+        for ed in getattr(spec, "entity_definitions", []):
+            if isinstance(ed, dict):
+                ename = ed.get("name", "")
+                fields = ed.get("fields", [])
+                if ename and fields:
+                    attrs: dict = {}
+                    for f in fields:
+                        if isinstance(f, dict):
+                            fname = f.get("name", "")
+                            raw_type = _FIELD_TYPE_MAP.get(f.get("type", "string"), "string")
+                            required = f.get("required", True)
+                            if fname:
+                                attrs[fname] = raw_type if required else raw_type + "?"
+                    def_lookup[ename] = attrs
+
+        entities = []
+        for e in spec.entities:
+            if e in def_lookup:
+                attributes = def_lookup[e]
+            else:
+                attributes = _infer_attributes(e, spec.app_type)
+            entities.append(GenesisEntity(name=e, attributes=attributes, relations=[]))
+
         return GenesisIR(
             project_id=spec.project_id,
             entities=entities,

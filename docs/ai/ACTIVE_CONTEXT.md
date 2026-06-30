@@ -1125,3 +1125,79 @@ backend/app/main.py          (6 include_router calls + /health)
 - `scripts/validate_m26.py` (new) — 34-check M26 validation runner.
 
 **Frontend validation after M26:** Frontend not touched. Baseline unchanged: **23 files / 239 tests pass**.
+
+---
+
+## Milestone 27 — Entity Field Inference and Rich Schema Generator
+
+**Status: complete (2026-06-30)**
+
+Upgraded Genesis from entity-name-only backend generation (M26's `name: str = ""` placeholder) to field-aware Pydantic schema generation using inferred fields from `app_type`.
+
+**Changes:**
+
+- `genesis_engine/models/planning.py` — Added `EntityFieldDef(name, type, required)` and `EntityDefinition(name, fields)` models; added `entity_definitions: List[EntityDefinition]` to `ProposedApplicationPlan` for future explicit field specs.
+- `genesis_engine/models/spec.py` — Added `entity_definitions: List[Dict[str, Any]]` for carrying explicit definitions through the compiler pipeline.
+- `genesis_engine/core/planning_engine.py` — Added module-level inference tables (`_ENTITY_FIELDS_BY_APP_TYPE`, `_DEFAULT_ENTITY_FIELDS`, `_FIELD_TYPE_MAP`) and `_infer_attributes(entity_name, app_type)`. Updated `_convert_spec_to_ir()` to populate `GenesisEntity.attributes` from explicit definitions (if provided) or via inference.
+- `genesis_engine/plugins/implementations/fastapi_plugin.py` — Added `_py_type(raw)` static method (maps internal type string with `?` suffix to `(python_type, is_optional)`); rewrote `_generate_schemas_code()` to generate rich Pydantic schemas from `table.columns`.
+- `backend/app/api/genesis_controller.py` — Passes `entity_definitions` from the approved plan to `ProjectSpecification`.
+
+**Generated schema structure (CRM Customer example):**
+
+```python
+from pydantic import BaseModel
+from typing import Optional
+
+class CustomerBase(BaseModel):
+    name: str
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    company: Optional[str] = None
+    status: Optional[str] = None
+
+class CustomerCreate(CustomerBase):
+    pass
+
+class Customer(BaseModel):   # flat — avoids Pydantic v2 required-after-optional error
+    id: int
+    name: str
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    company: Optional[str] = None
+    status: Optional[str] = None
+```
+
+**Validation (36 checks — all PASS via `scripts/validate_m27.py`):**
+- All 6 CRM entity schemas generated with correct fields ✓
+  - CustomerBase: name, email, phone, company, status ✓
+  - DealBase: title, value, stage, customer_id ✓
+  - ActivityBase: title, type, due_date, completed ✓
+  - UserBase: name, email, role ✓
+  - TeamBase: name, description ✓
+  - NoteBase: title, content ✓
+- `Optional` import present in schemas.py ✓
+- Response model is flat `Customer(BaseModel)` with `id: int` first ✓
+- All 11 generated backend .py files pass `py_compile` ✓
+- Old entity-name-only format (`old_entity_format_001`, no `app_type`): generates default inference (`name: str, description: Optional[str]`), py_compile PASS ✓
+- No-entities backward compat (`simple_no_entities_001`): build_status=SUCCESS, no routers/ directory ✓
+- `validate_m26.py` (35 checks): PASS ✓ (regression clean)
+- `approve_plan_genesis.py`: PASS ✓
+- `smoke_test_genesis.py --generate`: PASS ✓
+
+**Live CRUD (generated backend port 8010):**
+- `POST /api/v1/customers {"name":"Acme Corp","email":"hello@acme.com","phone":"0712345678","company":"Acme","status":"Lead"}` → 201 with all fields in response ✓
+- `GET /api/v1/customers/1` → 200 with full rich payload ✓
+- `GET /customers` → 404 ✓
+
+**Remaining risks / deferred to future milestones:**
+- Storage is pure in-memory dict (no persistence). Database integration is a later milestone.
+- `ir.api_routes` strings still not consumed by `ApiPlanner`.
+- LLM output (`LLMApplicationProposal.entities`) still returns `List[str]` — inference covers all current cases, but explicit LLM-driven field generation could be added later by changing the LLM schema.
+- CRM field inference is the only rich type map; other app_types (portfolio, ecommerce, etc.) use default inference (`name + description`).
+
+**Backend startup note:** The backend must be started from within the `backend/` directory: `cd backend && python -m uvicorn main:app --port 8000`. There are no `__init__.py` files in `backend/` or `backend/app/`, so `backend.app.main` is not importable as a dotted module from the project root.
+
+**Scripts:**
+- `scripts/validate_m27.py` (new) — 36-check M27 validation runner.
+
+**Next task:** Wait for user approval of M27.

@@ -12,6 +12,14 @@ class FastApiPlugin(GenerationPlugin):
     def target_framework(self): return "fastapi"
 
     @staticmethod
+    def _py_type(raw: str):
+        """Map internal type string (with optional '?' suffix) to (python_type, is_optional)."""
+        optional = raw.endswith("?")
+        base = raw.rstrip("?")
+        py = {"string": "str", "integer": "int", "number": "float", "boolean": "bool"}.get(base, "str")
+        return py, optional
+
+    @staticmethod
     def _pluralize(name: str) -> str:
         lower = name.lower()
         if lower.endswith('y') and len(lower) > 1 and lower[-2] not in 'aeiou':
@@ -47,24 +55,42 @@ SECRET_KEY=your-secret-key-here
         return configs
 
     def _generate_schemas_code(self, entities) -> str:
-        lines = ["from pydantic import BaseModel", ""]
+        lines = ["from pydantic import BaseModel", "from typing import Optional", ""]
         for table in entities:
             name = table.name
-            lines += [
-                "",
-                f"class {name}Base(BaseModel):",
-                '    name: str = ""',
-                "",
-                "",
-                f"class {name}Create({name}Base):",
-                "    pass",
-                "",
-                "",
-                f"class {name}(BaseModel):",
-                "    id: int",
-                '    name: str = ""',
-                "",
-            ]
+            columns = table.columns or {}
+
+            # Required fields before optional (Pydantic v2 ordering rule)
+            required_cols = [(k, v) for k, v in columns.items() if not v.endswith("?")]
+            optional_cols = [(k, v) for k, v in columns.items() if v.endswith("?")]
+            ordered = required_cols + optional_cols
+
+            def _field_decls(cols):
+                if not cols:
+                    return ['    name: str = ""']
+                out = []
+                for field_name, raw_type in cols:
+                    py_type, optional = self._py_type(raw_type)
+                    if optional:
+                        out.append(f"    {field_name}: Optional[{py_type}] = None")
+                    else:
+                        out.append(f"    {field_name}: {py_type}")
+                return out
+
+            base_fields = _field_decls(ordered)
+
+            # Base model — all domain fields
+            lines += ["", f"class {name}Base(BaseModel):"] + base_fields
+
+            # Create model — inherits Base (used for POST/PUT request bodies)
+            lines += ["", "", f"class {name}Create({name}Base):", "    pass"]
+
+            # Response model — flat (avoids Pydantic v2 required-after-optional error
+            # that occurs when a required child field follows optional parent fields)
+            response_fields = ["    id: int"] + base_fields
+            lines += ["", "", f"class {name}(BaseModel):"] + response_fields
+            lines.append("")
+
         return "\n".join(lines)
 
     def _generate_storage_code(self, entities) -> str:

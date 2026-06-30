@@ -1,5 +1,46 @@
 # Decision Log
 
+## 2026-06-30 (M27)
+
+Decision: M27 — Entity Field Inference and Rich Schema Generator. Upgrade Genesis from entity-name-only backend generation (M26's `name: str = ""` placeholder) to field-aware Pydantic schema generation using inferred fields from `app_type`.
+
+**Key decisions:**
+
+1. **Inference runs in `PlanningEngine._convert_spec_to_ir()`, not in the plugin or planner.** The inference table is keyed by `app_type.lower()` → `entity_name.lower()` → list of `(field_name, base_type, required)` tuples. This keeps `DatabasePlanner` dumb (still just maps `entity.attributes → DatabaseTableNode.columns`) and keeps `FastApiPlugin` pure (just reads `table.columns`). The IR conversion layer is the right place for "what should this entity look like in this domain."
+
+2. **Optional fields encoded with `?` suffix on the type string.** `GenesisEntity.attributes: Dict[str, str]` maps field name → type string. Required fields store the base type (`"string"`, `"integer"`, etc.); optional fields store the base type with a `?` suffix (`"string?"`, `"integer?"`, etc.). The `FastApiPlugin._py_type()` method decodes this convention. No model schema changes needed; the convention is self-documenting and all internal.
+
+3. **Response model (`Customer`) is generated flat, not inheriting from `CustomerBase`.** Pydantic v2 raises `PydanticUserError: Non-default field follows default field` when a required field in a child class appears after optional fields in a parent class — which `Customer(CustomerBase)` with `id: int` would trigger. The safe pattern is `class Customer(BaseModel): id: int; name: str; email: Optional[str] = None; ...` (required fields first, optional fields after, in a flat class). The router code `Customer(id=new_id, **item.model_dump())` still works because `Customer` has all the same fields as `CustomerCreate`.
+
+4. **`entity_definitions: List[EntityDefinition]` added to `ProposedApplicationPlan` and `entity_definitions: List[Dict[str, Any]]` added to `ProjectSpecification`.** This is infrastructure for when the LLM or user provides explicit field definitions. For M27, inference always runs (no plan sends entity_definitions yet), but the `_convert_spec_to_ir` logic checks `def_lookup` first, falling back to inference. New explicit format: `{"name": "Customer", "fields": [{"name": "email", "type": "string", "required": false}]}`.
+
+5. **Type normalization is centralized in `_FIELD_TYPE_MAP`.** External type names (`"email"`, `"text"`, `"url"`, `"decimal"`) map to canonical internal types (`"string"`, `"number"`). The `FastApiPlugin._py_type()` maps canonical → Python type. This keeps the two systems loosely coupled — future external types just need a row in `_FIELD_TYPE_MAP`, not a change to the plugin.
+
+6. **Default inference for unknown entities: `name (required), description (optional)`.** Any entity not in the `_ENTITY_FIELDS_BY_APP_TYPE` table (or in an unknown app_type) gets `name: str, description: Optional[str] = None`. This is more useful than an empty schema and less opinionated than inventing domain-specific fields.
+
+7. **Backend startup path fixed: run from `backend/` directory as `uvicorn main:app`.** The project structure has no `__init__.py` in `backend/` or `backend/app/`, so `backend.app.main` is not importable as a dotted module from the project root. The correct invocation is `cd backend && uvicorn main:app --port 8000`. The genesis_controller uses `sys.path.append` to make `genesis_engine` visible from within the backend process.
+
+8. **`from typing import Optional` added to generated `schemas.py` header.** Always emitted regardless of whether optional fields are present. Safe to have unused imports in generated code; avoiding them would require a pre-emit scan with no benefit.
+
+**Files changed (M27):**
+- `genesis_engine/models/planning.py` — added `EntityFieldDef`, `EntityDefinition`; added `entity_definitions` to `ProposedApplicationPlan`
+- `genesis_engine/models/spec.py` — added `entity_definitions: List[Dict[str, Any]]`
+- `genesis_engine/core/planning_engine.py` — added `_FIELD_TYPE_MAP`, `_ENTITY_FIELDS_BY_APP_TYPE`, `_DEFAULT_ENTITY_FIELDS`, `_infer_attributes()`; updated `_convert_spec_to_ir()` to populate entity attributes via inference or explicit definitions
+- `genesis_engine/plugins/implementations/fastapi_plugin.py` — added `_py_type()` static method; rewrote `_generate_schemas_code()` to generate field-aware Pydantic schemas from `table.columns`
+- `backend/app/api/genesis_controller.py` — pass `entity_definitions` from plan to spec
+- `scripts/validate_m27.py` — new 36-check M27 validation runner
+
+**Validation (rich_fields_crm_001 — 6 entities: Customer, Deal, Activity, User, Team, Note):**
+- All 36 M27 checks PASS via `scripts/validate_m27.py` ✓
+- `py_compile` clean on 10 modified engine/backend files + all 11 generated backend .py files ✓
+- `validate_m26.py` (35 checks): PASS ✓ (regression clean)
+- `approve_plan_genesis.py`: PASS ✓
+- `smoke_test_genesis.py --generate`: PASS ✓
+- Live CRUD on generated backend (port 8010) with rich customer payload: PASS ✓
+  - `POST /api/v1/customers {"name":"Acme Corp","email":"hello@acme.com","phone":"0712345678","company":"Acme","status":"Lead"}` → 201 with all fields echoed back ✓
+  - `GET /api/v1/customers/1` → 200 with all fields ✓
+  - `GET /customers` → 404 ✓
+
 ## 2026-06-30 23:30 +05:30
 
 Decision: M26 — FastAPI Entity, Schema, and CRUD Generator Foundation. Replace the placeholder backend generator with a real entity-aware CRUD structure. In-memory storage (no database, no SQLAlchemy). Backward compatible with simple specs (no entities → falls back to minimal path).

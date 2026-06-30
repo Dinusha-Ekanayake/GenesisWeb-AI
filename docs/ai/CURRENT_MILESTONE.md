@@ -1,6 +1,6 @@
 # Current Milestone
 
-Status: complete — Milestone 26 (FastAPI Entity, Schema, and CRUD Generator Foundation).
+Status: complete — Milestone 27 (Entity Field Inference and Rich Schema Generator).
 
 ## Completed Milestones
 
@@ -40,6 +40,7 @@ Status: complete — Milestone 26 (FastAPI Entity, Schema, and CRUD Generator Fo
 - M24: Generated App Package Configs and Build-Ready Skeleton
 - M25: Rich App Spec v2 and Approved Plan Compiler Mapping
 - M26: FastAPI Entity, Schema, and CRUD Generator Foundation
+- M27: Entity Field Inference and Rich Schema Generator
 
 ## Current Validation Baseline
 
@@ -52,14 +53,18 @@ npm.cmd test
 git diff --check
 ```
 
-Expected baseline (M26): lint pass, build pass, **23 files / 239 tests pass**, diff --check pass (CRLF warnings only).
-Frontend product code was not touched in M26.
+Expected baseline (M27): lint pass, build pass, **23 files / 239 tests pass**, diff --check pass (CRLF warnings only).
+Frontend product code was not touched in M27.
 
-Engine/backend files changed in M26 (1 modified file):
-- `genesis_engine/plugins/implementations/fastapi_plugin.py` (complete rewrite with entity-aware CRUD generation)
+Engine/backend files changed in M27 (5 modified files):
+- `genesis_engine/models/planning.py` — added `EntityFieldDef`, `EntityDefinition`; added `entity_definitions` to `ProposedApplicationPlan`
+- `genesis_engine/models/spec.py` — added `entity_definitions: List[Dict[str, Any]]`
+- `genesis_engine/core/planning_engine.py` — added field inference tables and `_infer_attributes()`; updated `_convert_spec_to_ir()` to populate entity attributes via inference or explicit definitions
+- `genesis_engine/plugins/implementations/fastapi_plugin.py` — added `_py_type()` helper; rewrote `_generate_schemas_code()` for field-aware Pydantic schema generation
+- `backend/app/api/genesis_controller.py` — pass `entity_definitions` from plan to spec
 
-Scripts added in M26:
-- `scripts/validate_m26.py` — M26 validation runner (34 checks; PASS)
+Scripts added in M27:
+- `scripts/validate_m27.py` — M27 validation runner (36 checks; PASS)
 
 ## Stopping Point
 
