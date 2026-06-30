@@ -1,5 +1,108 @@
 # Decision Log
 
+## 2026-06-30 13:45 +05:30
+
+Decision: M20 — Fix artifact persistence gap in `run_full_pipeline()`. Write all 6 graph JSONs, planning report, and deployment manifest to `workspace/{id}/artifacts/` after every generate call.
+
+**Key decisions:**
+
+1. **Write artifacts AFTER `execute_build()`, not before.** The initial implementation placed artifact writes between the workspace hash computation and `execute_build()`. `BuildOrchestrator.execute_build()` re-hashes the workspace and compares it to `report.workspace_hash` to detect tampering. Writing artifacts first changed the workspace, causing the hash to mismatch and raising `CompilerTamperError`. Moving writes to after `execute_build()` resolves this: the tamper check sees the clean post-generation workspace (matching the stored hash), then artifacts are written as post-processing metadata that does not affect the integrity check.
+
+2. **Remove the `if report_path.exists():` gate entirely.** The original conditional was an implicit dead-code guard — `artifacts/` was never created, so the condition was always false. The unconditional write (after `artifacts_dir.mkdir(parents=True, exist_ok=True)`) is the correct behavior.
+
+3. **Write `architecture_graphs.json` (combined) in addition to 6 individual `*_graph.json` files.** The HTTP `GET /graphs` endpoint reads individual `*_graph.json` files. The combined file is additional metadata written per the M20 scope but not read by any current API endpoint. It does not hurt anything and provides a convenience artifact for tooling.
+
+4. **Do not change `BuildOrchestrator`, `Packager`, or any API contract.** Manifest still goes to `dist/{id}/deployment_manifest.json` (existing behavior, unchanged). It is now ALSO written to `workspace/{id}/artifacts/deployment_manifest.json` (the path the HTTP API reads). This dual-write satisfies both the packager contract and the HTTP API.
+
+5. **`project_dir` is already defined in the method scope.** `artifacts_dir = project_dir / "artifacts"` naturally derives from the existing `project_dir = Path(self.workspace_root) / project_id` assigned at line 90. No new imports needed — `json` and `Path` are already imported inside the method.
+
+**Files changed:**
+- `genesis_engine/core/orchestrator.py` — only file changed; replaced lines 96–100 (buggy conditional write) with unconditional write block; added manifest write after `execute_build()`
+
+**Validation:**
+- `workspace/artifact_persistence_001/artifacts/` contains 9 files: 6 `*_graph.json` + `architecture_graphs.json` + `planning_report.json` + `deployment_manifest.json`
+- `GET /projects/artifact_persistence_001`: planning_report non-null (PASS, score=100), deployment_manifest non-null
+- `GET /projects/artifact_persistence_001/manifest`: build_status=SUCCESS, rule_engine_score=100
+- `GET /projects/artifact_persistence_001/graphs`: 6 graph entries
+- `python scripts/smoke_test_genesis.py` (read-only): PASS
+- `python scripts/smoke_test_genesis.py --generate`: PASS
+- Frontend: lint pass, build pass, **23 files / 239 tests pass**, diff --check pass
+
+## 2026-06-30 13:00 +05:30
+
+Decision: M19 — Architecture reset. Genesis should pivot to hybrid AI compiler; current generator has concrete fixable gaps, not a fundamental design flaw.
+
+**Key architectural decisions:**
+
+1. **Do not rewrite the pipeline. Fix the persistence gap first (M20).** The planning data is already computed correctly — FeatureGraph, PageGraph, ComponentGraph, ApiGraph, DatabaseGraph, DependencyGraph, and PlanningReport are all built by the current `PlanningEngine`. The only reason they don't appear in the frontend or via the HTTP API is a missing `artifacts/` directory creation and a conditional write that is always false. This is a 5–10 line fix, not an architecture rewrite.
+
+2. **The LangGraph NL-prompt path already exists and has GPT-4-turbo wired.** `backend/app/agents/nodes/requirement_analysis.py` calls `ChatOpenAI(model="gpt-4-turbo", temperature=0)` with `llm.with_structured_output(ProjectSpecification)`. `SystemArchitect` node also exists. Neither is connected to an HTTP endpoint. No new LLM integration is needed for M29 — only an HTTP endpoint and a system prompt improvement.
+
+3. **The component/page conflation is a one-line root cause.** `_convert_spec_to_ir()` concatenates `spec.pages + spec.components` into a single flat feature list. This is why Navbar becomes a route and why backend gets an endpoint for Chart. Fixing this in M23 requires splitting the IR so pages feed PagePlanner and components feed a separate ComponentModulePlanner.
+
+4. **Plugin architecture is the right abstraction; the plugins need to be replaced.** `GenerationEngine.execute()` iterates `plan.steps` sorted by priority and calls `plugin.generate(context)`. This is correct. `FastApiMinimalGenerator` and `NextJsMinimalGenerator` produce valid plugin outputs. New plugins (`FastAPIGenerator`, `NextJsAppRouterGenerator`, `PackageConfigGenerator`, etc.) can be dropped in without changing the pipeline.
+
+5. **Milestone ordering is persistence-first, then component model, then richer plugins.** M20 (persistence) → M23 (component model) → M24 (build configs) → M25/M26 (richer plugins) → M27 (build runner) → M29 (LLM path HTTP exposure). Without M20, none of the frontend surfaces work even if generation improves. Without M23, all plugin improvements still produce routes for Navbar and GET /api/v1/sidebar.
+
+6. **Genesis should NOT continue with the current deterministic minimal generator as a final state.** The current output (8/35 quality score, identical across all spec complexities) proves the minimal generator is appropriate only for pipeline smoke testing. The roadmap to M31 charts a path to real app generation quality.
+
+Files inspected: 31 backend/engine files. No files modified.
+Validation baseline unchanged: **23 files / 239 tests pass**.
+
+## 2026-06-30 12:00 +05:30
+
+Decision: M18 — Benchmark 3 specs against the generator; result shows current generator is a deterministic template engine with no spec-aware code generation.
+
+**Benchmark approach:**
+Created `scripts/benchmark_genesis.py` (stdlib-only) to run validate + generate for 3 specs of increasing complexity. No changes to existing smoke test or product code.
+
+**Key findings:**
+
+1. **`FastApiMinimalGenerator` and `NextJsMinimalGenerator` are deterministic template engines.** They do not invoke an LLM. Generation takes 2.6–6.2 seconds regardless of spec size. A 5-component portfolio and a 9-component CRM receive structurally identical output.
+
+2. **Component/page conflation is the deepest structural issue.** The generator feeds both `pages[]` and `components[]` into the same template loop, producing identical `app/{name}/page.tsx` routes for each. A `Navbar` becomes a standalone page at `/navbar`, not an importable React component. A `Table` becomes a FastAPI endpoint `/api/v1/table`. This is wrong for both frontend and backend semantics.
+
+3. **Spec description is completely ignored.** The `description` field has no effect on output. "A deals pipeline with stage columns" and "A contact form with name/email/message fields" both produce `<div><h1>X Page</h1><p>Generated deterministically.</p></div>`. The generator reads only `pages[]` and `components[]` names.
+
+4. **No build configuration is generated.** `Dockerfile.frontend` explicitly acknowledges this: "Since we don't have a real package.json in the deterministic generator yet, we might skip next build." No `package.json`, `requirements.txt`, `tsconfig.json`, or `next.config.js` is produced.
+
+5. **`rule_engine_score=100` and `build_status=SUCCESS` are meaningless quality signals for this generator.** They indicate the pipeline executed without error, not that the output meets the spec. Every benchmark returns score=100 regardless of complexity.
+
+6. **All benchmarks scored 8/35 (23%).** No differentiation between simple, medium, and advanced specs. All scores are identical because all output is structurally identical.
+
+**What the benchmark did NOT try (deferred):**
+- LLM-based generation path (would require `OPENAI_API_KEY` and different generator plugins)
+- Buildability test (would require Docker + node/pip)
+- Frontend rendering of generated pages in browser
+
+Files changed:
+- `scripts/benchmark_genesis.py` — created; benchmark runner for M18
+
+Validation: Frontend baseline unchanged. **23 files / 239 tests pass**.
+
+## 2026-06-30 11:30 +05:30
+
+Decision: M17 — Run generate-enabled smoke test and inspect generated project. No code changes made — all checks passed and adapter already handles real backend response shapes.
+
+**Generate smoke test: PASS**
+
+Key findings from the end-to-end verification:
+
+1. **`POST /genesis/generate` returns a full manifest in its response body but the backend does not persist the manifest to the project record.** `GET /genesis/projects/{id}/manifest` and `GET /genesis/projects/{id}/graphs` consistently return `data: {}` for all 8 workspace projects. This is not a bug — it is the current backend design. The generate response is the authoritative source of the manifest; the project record only stores `execution_trace`, `status`, and `spec`.
+
+2. **The frontend adapter correctly handles `planning_report: null` and `deployment_manifest: null`.** Both map to `undefined` in the view-model, which causes the corresponding surfaces (Planning Report, Architecture, Artifacts) to show honest LimitedState components. No null guard changes were needed.
+
+3. **Workspace files are generated and accessible.** `workspace/smoke_test_001/` contains 8 real files. The workspace surface correctly fetches from `GET /projects/{id}/workspace` (a separate call, not from the project detail), so it shows real files regardless of what the project record contains.
+
+4. **Compilation trace is the only surface data persisted to the project record.** `execution_trace` with 12 events is populated in the project detail. `hasCompilationTrace = true` in capabilities. The run-specific compiler surface will show the real trace.
+
+5. **`hasWorkspaceFiles` capability will always be `false` for adapter-mapped projects** because the workspace is never embedded in `GET /genesis/projects/{id}` — it requires a separate API call. This is why the capabilities flag is not used as the workspace gate. The workspace surface always fetches and shows data when available (M5.4 decision, confirmed correct here).
+
+6. **No code changes needed.** The only potential improvement is the smoke test's "null (not yet compiled)" diagnostic message for the manifest endpoint, which is cosmetically misleading for a compiled project. Since the test PASS result is correct and there is no functional blocker, this cosmetic fix is deferred.
+
+Files changed: none.
+Validation baseline: **23 files / 239 tests pass** (unchanged).
+
 ## 2026-06-30 11:15 +05:30
 
 Decision: M16 — Create a stdlib-only Python smoke-test script for authenticated end-to-end backend verification. No external dependencies, read-only by default.

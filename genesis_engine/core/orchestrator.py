@@ -92,22 +92,45 @@ class ExecutionOrchestrator:
             
             # Update planning_report with workspace_hash
             report.workspace_hash = post_gen_hash
-            
-            # Flush updated report to disk so independent deploy commands can verify it
-            report_path = project_dir / "artifacts" / "planning_report.json"
-            if report_path.exists():
-                with open(report_path, "w") as f:
-                    f.write(report.model_dump_json(indent=2))
-            
+
             # 2.5 Quality Gate Enforcement Removed
             # The compiler must remain independent from CI/CD responsibilities.
-            
+
             # 3. Deployment Packaging
+            # NOTE: execute_build() re-hashes the workspace to detect tampering.
+            # Artifact writes must happen AFTER this check to avoid a hash mismatch.
             self.telemetry.log_execution_trace(project_id, {"phase": "pipeline", "step": "deployment", "status": "started"})
             manifest = self.build_orchestrator.execute_build(project_id, report.model_dump(mode="json"))
-                
+
+            # Persist all artifacts to workspace/{id}/artifacts/ for HTTP API reads.
+            # Written after execute_build so the tamper-detection hash check is not disturbed.
+            artifacts_dir = project_dir / "artifacts"
+            artifacts_dir.mkdir(parents=True, exist_ok=True)
+
+            for graph_name, graph in [
+                ("feature_graph", f_graph),
+                ("page_graph", p_graph),
+                ("component_graph", c_graph),
+                ("api_graph", a_graph),
+                ("database_graph", db_graph),
+                ("dependency_graph", dep_graph),
+            ]:
+                (artifacts_dir / f"{graph_name}.json").write_text(graph.model_dump_json(indent=2))
+
+            (artifacts_dir / "architecture_graphs.json").write_text(json.dumps({
+                "feature_graph": f_graph.model_dump(),
+                "page_graph": p_graph.model_dump(),
+                "component_graph": c_graph.model_dump(),
+                "api_graph": a_graph.model_dump(),
+                "database_graph": db_graph.model_dump(),
+                "dependency_graph": dep_graph.model_dump(),
+            }, indent=2))
+
+            (artifacts_dir / "planning_report.json").write_text(report.model_dump_json(indent=2))
+            (artifacts_dir / "deployment_manifest.json").write_text(manifest.model_dump_json(indent=2))
+
             self.telemetry.log_execution_trace(project_id, {
-                "phase": "pipeline", 
+                "phase": "pipeline",
                 "status": "completed",
                 "deployment_hash": manifest.deployment_hash
             })

@@ -1,6 +1,6 @@
 # Current Milestone
 
-Status: complete — Milestone 16 (Authenticated End-to-End Smoke Test Runner).
+Status: complete — Milestone 20 (Persist Manifest, Architecture Graphs, and Planning Report).
 
 ## Completed Milestones
 
@@ -30,6 +30,10 @@ Status: complete — Milestone 16 (Authenticated End-to-End Smoke Test Runner).
 - M14: Auth Guard / Unauthorized Redirect
 - M15: Auth Expiry / 401 Handling
 - M16: Authenticated End-to-End Smoke Test Runner
+- M17: Real Compiler Generate Smoke Test
+- M18: Generated App Quality Benchmark
+- M19: Genesis Engine Product Direction Reset and Target Architecture Plan
+- M20: Persist Manifest, Architecture Graphs, and Planning Report
 
 ## Current Validation Baseline
 
@@ -42,7 +46,9 @@ npm.cmd test
 git diff --check
 ```
 
-Expected baseline (M16): lint pass, build pass, **23 files / 239 tests pass**, diff --check pass (CRLF warnings only). No frontend files were changed in M16 — baseline is identical to M15.
+Expected baseline (M20): lint pass, build pass, **23 files / 239 tests pass**, diff --check pass (CRLF warnings only).
+
+One backend file changed in M20: `genesis_engine/core/orchestrator.py`. No frontend files changed.
 
 ## Stopping Point
 

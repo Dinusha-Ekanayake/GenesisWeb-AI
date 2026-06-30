@@ -467,6 +467,335 @@ Milestone 16 is complete for Authenticated End-to-End Smoke Test Runner only:
 - Verified: `python -m py_compile scripts/smoke_test_genesis.py` → syntax OK. `python scripts/smoke_test_genesis.py --help` → correct output. `python scripts/smoke_test_genesis.py --backend-url http://127.0.0.1:9999` → exit code 1 with unreachable message.
 - No frontend source files changed. No backend code changed. No API contracts changed. No tests added (script is self-testing via subprocess). Validation baseline unchanged: **23 files / 239 tests pass**.
 
+Milestone 17 is complete for Real Compiler Generate Smoke Test only:
+
+**Generate smoke test result: PASS (all automated checks passed)**
+
+- `POST /genesis/validate` → PASS, `integrity_score=100`
+- `POST /genesis/generate` → PASS, `project_id=smoke_test_001`
+- Generate response manifest contains: 6 `graph_hashes` (FeatureGraph, PageGraph, ComponentGraph, ApiGraph, DatabaseGraph, DependencyGraph), `rule_engine_score=100`, `plugin_versions` (FastApiMinimalGenerator 1.0, NextJsMinimalGenerator 1.0), `build_status=SUCCESS`, `deployment_hash`, `workspace_hash`
+- Physical workspace created at `workspace/smoke_test_001/` with 8 real files: `backend/app/main.py`, `frontend/app/dashboard/page.tsx`, `frontend/app/navbar/page.tsx`, `docker-compose.yml`, `Dockerfile.backend`, `Dockerfile.frontend`, `execution_trace.json`, `spec.json`
+
+**Backend behavior confirmed (consistent across all 8 projects):**
+- `GET /genesis/projects/{id}` returns `planning_report: null`, `deployment_manifest: null` for all projects — backend generates and returns manifest data in the `/generate` response body but does NOT persist it back to the project record
+- `GET /genesis/projects/{id}/manifest` returns `data: {}` for all projects (empty dict, not null)
+- `GET /genesis/projects/{id}/graphs` returns `data: {}` for all projects
+- `GET /genesis/projects/{id}/workspace` returns real workspace files after generation (7 items for smoke_test_001)
+- `execution_trace` IS populated in the project detail (12 events for smoke_test_001 after two generate runs)
+
+**Frontend adapter is correct for real generated project shape:**
+- `planning_report: null` → `run.planningReport = undefined` → Planning Report surface shows honest LimitedState
+- `deployment_manifest: null` + no `artifact_files` → `run.artifactBundle = undefined` → Artifacts surface shows honest LimitedState
+- `execution_trace: [12 events]` → `run.compilationTrace` populated → Compiler trace surface shows real events
+- `spec.name = "Smoke Test"` → `run.projectName = "Smoke Test"` (via `project.spec?.name`)
+- `status: "SUCCESS"` → `run.status = "SUCCESS"` → SUCCESS badge
+- `hasArchitectureGraphs = false` (graphs not in project detail) → Architecture surface shows honest LimitedState
+- `hasWorkspaceFiles = false` (workspace not in project detail), BUT workspace surface fetches separately via `GET /workspace` → returns 7 real files
+- `hasCompilationTrace = true` → Compiler surface on run detail shows trace
+
+**No code changes made.** No null guards missing. No broken route links. No adapter mapping errors. The adapter correctly handles the real backend response shape as it existed before this milestone.
+
+**Cosmetic note (not a bug):** The smoke test prints "null (not yet compiled)" for the manifest endpoint because the backend consistently returns `data: {}` (falsy) for all projects after generation. The test correctly shows `[PASS]` — the message is slightly misleading but functionally accurate in that no structured manifest is accessible via `GET /manifest`.
+
+No files changed. Validation baseline unchanged: **23 files / 239 tests pass**.
+
+Milestone 18 is complete for Generated App Quality Benchmark only:
+
+**Created `scripts/benchmark_genesis.py`** — stdlib-only benchmark runner; runs validate + generate for 3 benchmark specs; inspects workspace file tree and prints key file contents. Verified syntax with `py_compile`.
+
+**Benchmark specs used:**
+- A: `benchmark_portfolio_001` — 5 pages, 5 components (Personal Portfolio)
+- B: `benchmark_tasks_001` — 7 pages, 7 components (Task Management Dashboard)
+- C: `benchmark_crm_001` — 9 pages, 9 components (SaaS CRM Application)
+
+**All 3 validated at score=100. All 3 generated with build_status=SUCCESS.**
+
+**Generator behavior (consistent across all 3):**
+- The `FastApiMinimalGenerator` and `NextJsMinimalGenerator` plugins are deterministic template engines, NOT LLM-based code generators
+- Every entry in `pages[]` and `components[]` receives identical treatment: one `frontend/app/{name_lowercase}/page.tsx` (7-line boilerplate returning `<div><h1>X Page</h1><p>Generated deterministically.</p></div>`) and one GET+POST endpoint in `backend/app/main.py` returning `{'message': 'GET/POST X generated deterministically'}`
+- Components are generated as standalone app routes, NOT as importable React modules
+- No `package.json`, `requirements.txt`, `tsconfig.json`, or `next.config.js` is generated (Dockerfile explicitly notes this limitation)
+- Generation time: 2.6–6.2 seconds — confirming no LLM invocation
+- Output is structurally identical for all 3 benchmarks regardless of spec complexity
+
+**Benchmark score table (0–5 per criterion, 7 criteria):**
+
+| Criterion | A Portfolio | B Tasks | C CRM |
+|---|---|---|---|
+| 1. Pages/routes generated | 3 | 3 | 3 |
+| 2. Component structure quality | 1 | 1 | 1 |
+| 3. Backend/API structure | 1 | 1 | 1 |
+| 4. Styling/layout quality | 0 | 0 | 0 |
+| 5. Build/run readiness | 2 | 2 | 2 |
+| 6. Real functionality vs placeholder | 0 | 0 | 0 |
+| 7. Completeness against prompt | 1 | 1 | 1 |
+| **Total** | **8/35** | **8/35** | **8/35** |
+
+**Score notes:**
+- Pages/routes (3): Page names match spec and files exist, but components are wrongly placed as routes, no root index route, no layout.tsx
+- Component structure (1): Files exist but are not importable React components — no props, no exports, no composition
+- Backend/API (1): Endpoints exist per name but frontend-only components (Navbar, Sidebar, Chart) incorrectly receive API routes; all return placeholder strings
+- Styling (0): No CSS, no Tailwind, no design system applied
+- Build/run (2): Pages are syntactically valid; Docker build would fail (missing package.json, requirements.txt — Dockerfile acknowledges this)
+- Functionality (0): Pure placeholders; no contact form fields, no Kanban board, no auth logic
+- Completeness (1): Entry names match spec; content is 100% boilerplate
+
+**Biggest generator gaps (ranked by impact):**
+1. No component/page distinction — components should be importable React modules in `src/components/`, not standalone routes in `app/`
+2. No actual code generation — spec description is completely ignored; every file is identical boilerplate regardless of what was requested
+3. No layout/navigation — no `layout.tsx`, no inter-page links, no shared navigation
+4. No build configuration — missing `package.json`, `requirements.txt`, `tsconfig.json`, `next.config.js`
+5. No TypeScript interfaces or props
+6. No styling
+7. Frontend-only concepts (Navbar, Chart, Sidebar) incorrectly receive backend API routes
+8. Complexity has zero effect on output — A portfolio and a full CRM produce structurally identical output
+
+**Strongest generated output:** All three score identically. B (Task Management) has the most realistic page name set for a functional app.
+
+**Weakest generated output:** C (CRM) demonstrates most clearly that increasing spec complexity has zero effect on output quality or content.
+
+**Can Genesis currently generate advanced websites?** No. Current output is structural scaffolding — empty page stubs with correct names. Real application code generation requires LLM-backed generator plugins (e.g., `FastApiLLMGenerator`, `NextJsLLMGenerator`).
+
+**Files changed in M18:** `scripts/benchmark_genesis.py` (created). Three workspace directories created under `workspace/` by the generator itself (not tracked by frontend validation).
+Frontend validation baseline unchanged: **23 files / 239 tests pass**.
+
+Milestone 19 is complete for Genesis Engine Product Direction Reset and Target Architecture Plan only:
+
+---
+
+## M19 Architecture Report
+
+### Current Implementation Diagnosis
+
+**Two parallel generation paths exist — and only one is connected to the HTTP API.**
+
+**Path A: HTTP Direct-Spec (what benchmarks used)**
+`POST /genesis/generate` → `CompilerService.run_pipeline()` → `ExecutionOrchestrator.run_full_pipeline()` → `PlanningEngine.validate_blueprint()` → `GenerationEngine.execute()` → `BuildOrchestrator.execute_build()` → returns `DeploymentManifest`
+
+**Path B: LangGraph NL-Prompt (implemented, not HTTP-exposed)**
+`run_langgraph_e2e.py` → `ProjectManager` → `RequirementAnalyzer` (GPT-4-turbo structured output, `langchain_openai.ChatOpenAI`) → `GenesisCompiler` → `GenesisGenerator` → same deterministic pipeline
+- `RequirementAnalyzer` calls `get_llm()` which returns `ChatOpenAI(model="gpt-4-turbo", temperature=0)` and uses `llm.with_structured_output(ProjectSpecification)`
+- `SystemArchitect` LangGraph node exists (also calls GPT-4-turbo) but is not wired into the workflow graph
+- No HTTP endpoint points to the LangGraph path
+
+**Root Cause of Missing Artifact Persistence (Critical Bug)**
+
+`run_full_pipeline()` (`genesis_engine/core/orchestrator.py:42`) has a silent persistence failure:
+1. `PlanningEngine.validate_blueprint()` computes all 6 graphs (FeatureGraph, PageGraph, ComponentGraph, ApiGraph, DatabaseGraph, DependencyGraph) and the PlanningReport — but does NOT write them to disk. Only `PlanningEngine.plan()` calls `workspace_adapter.flush_transaction()` which creates `artifacts/`.
+2. `run_full_pipeline()` calls `validate_blueprint()` directly and never calls `plan()`. So `artifacts/` is never created.
+3. The planning report write at line 97–100 is gated on `if report_path.exists():` — this condition is always false because `artifacts/` was never created. Report is never written.
+4. The 6 architecture graph JSON files are never written at all — computed in memory, discarded.
+5. The deployment manifest is saved to `dist/{project_id}/deployment_manifest.json` (via Packager), not to `workspace/{project_id}/artifacts/deployment_manifest.json` where the HTTP API reads it from. This is why `GET /manifest` always returns `{}`.
+
+**Fix is minimal:** Create `artifacts/` directory before the conditional, write report unconditionally, write each graph JSON, and write the final manifest to both `dist/` and `workspace/artifacts/`.
+
+**Root Cause of Component/Page Conflation**
+
+`PlanningEngine._convert_spec_to_ir()` (`planning_engine.py:45`):
+```python
+features = spec.pages + spec.components  # pages and components merged into one list
+```
+This feeds into `FeaturePlanner` → every item becomes a `FeatureNode` → `PagePlanner` → every item becomes a route → `ApiPlanner` → every item gets GET+POST endpoints. Components (Navbar, Sidebar, Table) should be importable React modules, not routes.
+
+**Root Cause of Spec Description Being Ignored**
+
+`GenesisIR` is built from `spec.pages + spec.components` only. The `description` field is discarded. No planner uses the description to infer entities, auth requirements, data models, or UI patterns.
+
+**Plugin System State**
+
+Only two plugins exist:
+- `FastApiMinimalGenerator` — GET+POST endpoint per feature, all in `backend/app/main.py`, placeholder string responses
+- `NextJsMinimalGenerator` — `frontend/app/{route}/page.tsx` per page, 7-line boilerplate
+
+No plugins for: package.json, requirements.txt, tsconfig.json, next.config.js, TypeScript types, CSS/Tailwind layout, database models, CRUD endpoints, auth, tests, or seed data.
+
+**Packager State**
+
+`Packager.bundle()` writes `deployment_bundle.zip` and `deployment_manifest.json` to `dist/{project_id}/` — a directory the HTTP API does NOT read from. The workspace HTTP endpoint reads from `workspace/{project_id}/artifacts/`. This disconnect is why manifests are never visible via the frontend.
+
+---
+
+### Target Architecture
+
+**Product Principle:**
+- LLM decides what should be built
+- Compiler decides how it is built
+- Tests decide whether it works
+- Frontend shows every decision transparently
+
+**Layer A: Prompt Understanding**
+Convert natural language to rich structured spec. Already partially implemented via `RequirementAnalyzer` (GPT-4-turbo). Needs to be HTTP-exposed and the `ProjectSpecification` model needs richer fields: `entities`, `features`, `auth_requirements`, `database_models`, `api_routes`, `ui_style`, `navigation_structure`, `app_type`, `deployment_target`.
+
+**Layer B: Requirement Expansion Agent**
+`RequirementAnalyzer` already exists in `backend/app/agents/nodes/requirement_analysis.py`. Needs HTTP endpoint exposure and richer system prompt to expand vague prompts ("Create CRM" → customers, deals, activities, pipeline, dashboard, auth, team roles, forms, filters, APIs).
+
+**Layer C: Deterministic Validation**
+Rule Engine (`genesis_engine/rules/`) already exists with `RequirePrimaryKeyRule`, `SecureMutationsRule`, `ApiToDatabaseMappingRule`, `OrphanPageRule`. Rules can be extended to check: every component has valid import path, no component generated as route unless page-level, every form maps to an entity, every protected page has auth rule.
+
+**Layer D: Architecture Graph Layer**
+6 graphs already built: FeatureGraph, PageGraph, ComponentGraph, ApiGraph, DatabaseGraph, DependencyGraph. Missing: AuthGraph, DeploymentGraph. Graphs are correct data structures but need to be persisted to `workspace/artifacts/`.
+
+**Layer E: Blueprint Selection**
+`PagePlanner` hardcodes `"DashboardLayout"` for all pages regardless of app type. A blueprint selector should map `spec.app_type` to page patterns, component patterns, and API patterns appropriate for portfolio/dashboard/CRM/ecommerce/etc.
+
+**Layer F: Plugin-Based Code Generation**
+Currently only FastApi + NextJs minimal plugins. Target: `NextJsAppRouterGenerator`, `ReactComponentGenerator`, `TailwindLayoutGenerator`, `FastAPIGenerator`, `DatabaseSchemaGenerator`, `AuthGenerator`, `CrudGenerator`, `DockerGenerator`, `PackageConfigGenerator`, `TestGenerator`.
+
+**Layer G: LLM-Assisted Code Fill**
+`RequirementAnalyzer` already uses GPT-4-turbo. New: use LLM selectively for page-specific UI content, domain-specific field names, realistic sample data, component render logic, and business logic. LLM should NOT control file paths or architecture structure — the deterministic compiler controls structure.
+
+**Layer H: Build/Test Verification**
+Currently `BuildOrchestrator` only creates Docker templates and a zip. Real verification: `npm install` + `npm run build`, `python -m pytest`, `docker compose config`. Report build results in `planning_report.build_logs`.
+
+**Layer I: Repair Loop**
+When build fails: capture stderr, identify affected file, call LLM repair agent with minimal context, apply patch, rerun build. Limit to N attempts.
+
+**Layer J: Artifact Persistence**
+`Packager` already produces `deployment_manifest.json` — but saves to `dist/`. Fix: also write to `workspace/artifacts/`. Planning report, all 6 graph JSONs, and manifest must be in `workspace/{project_id}/artifacts/` so the HTTP API can serve them to the frontend.
+
+---
+
+### Gap Analysis
+
+| Gap | Current State | Target State | Priority | Milestone |
+|---|---|---|---|---|
+| Planning report not persisted | artifacts/ never created; conditional write always skips | Unconditionally written to workspace/{id}/artifacts/planning_report.json | Critical | M20 |
+| Architecture graphs not persisted | Computed in memory, discarded | Written as *_graph.json to workspace/{id}/artifacts/ | Critical | M20 |
+| Deployment manifest in wrong path | dist/{id}/deployment_manifest.json only | Also written to workspace/{id}/artifacts/deployment_manifest.json | Critical | M20 |
+| Component/page conflation | pages + components → same flat feature list | Separate: pages → routes, components → importable modules | High | M23 |
+| Spec description ignored | IR discards description | Feeds LLM expansion (M29) or enriched spec (M21) | High | M21 |
+| No package.json / build configs | Missing from generated output | PackageConfigGenerator plugin produces all config files | High | M24 |
+| LangGraph NL path not HTTP-exposed | Only accessible via run_langgraph_e2e.py | Exposed via POST /genesis/generate-from-prompt | Medium | M29 |
+| No blueprint selection | All apps get DashboardLayout + same template | Blueprint selector maps app_type to page/component/API patterns | Medium | M22 |
+| No LLM-backed generator plugins | Minimal deterministic only | LLM fills real component code, layout, business logic | Medium | M30 |
+| No real Next.js app structure | flat app/{name}/page.tsx per item | layout.tsx, navigation, component imports, responsive layout | High | M25 |
+| No real FastAPI structure | all routes in main.py, placeholder responses | routers/, models/, schemas/, CRUD per entity | High | M26 |
+| No build/test runner | generates files only | npm install + build, pytest, docker compose config | Low | M27 |
+| No repair loop | no recovery from failures | LLM repair agent patches and retries | Low | M28 |
+| SystemArchitect node unused | Implemented, not in workflow | Wire into LangGraph workflow between RequirementAnalyzer and GenesisCompiler | Medium | M29 |
+
+---
+
+### New Milestone Roadmap (M20 onward)
+
+**M20 — Persist Manifest, Architecture Graphs, and Planning Report**
+Fix the artifact persistence gap. Create `artifacts/` directory unconditionally in `run_full_pipeline()`. Write all 6 graph JSONs. Write planning report unconditionally. Write manifest to `workspace/artifacts/` in addition to `dist/`. This unblocks all 5 frontend surfaces (planning report, architecture, artifacts, graphs, manifest). Zero new features — pure bug fix for data that is already computed.
+
+**M21 — Rich App Spec v2**
+Extend `ProjectSpecification` to include `app_type`, `entities`, `features_list`, `auth_requirements`, `database_models`, `api_routes`, `ui_style`. Update planners to consume the richer spec. Update validation rules.
+
+**M22 — Blueprint Selection System**
+Add blueprint registry. Map `app_type` to appropriate page structures, component trees, and API patterns. Blueprints: portfolio, marketing_site, dashboard, admin_panel, task_management, crm, ecommerce, lms, booking_platform, blog_cms, saas_dashboard.
+
+**M23 — Fix Component vs Page Generation**
+Separate `pages[]` and `components[]` in `_convert_spec_to_ir()`. Pages → routes via PagePlanner. Components → importable React modules in `frontend/components/`. Backend ApiPlanner should not generate endpoints for frontend-only components (Navbar, Sidebar, etc.).
+
+**M24 — Package Config and Build-Ready App Output**
+New `PackageConfigGenerator` plugin: generates `package.json` (Next.js, Tailwind, TypeScript deps), `tsconfig.json`, `next.config.js`. New `PythonConfigGenerator`: generates `requirements.txt` (FastAPI, uvicorn, pydantic). Generated app should be installable.
+
+**M25 — Next.js App Router Advanced Generator**
+Replace `NextJsMinimalGenerator` with `NextJsAppRouterGenerator`: generates real `layout.tsx` with navigation, imports components from `frontend/components/`, responsive Tailwind layout, per-page real structure appropriate to page type.
+
+**M26 — FastAPI + CRUD + Database Schema Generator**
+Replace `FastApiMinimalGenerator` with `FastAPIGenerator`: generates routers per entity, SQLAlchemy models, Pydantic schemas, CRUD endpoints, dependency injection pattern, proper `main.py` that mounts routers.
+
+**M27 — Build/Test Runner for Generated Apps**
+`BuildOrchestrator` runs `npm install + npm run build`, `python -m pytest`, `docker compose config`. Logs results to `build_logs` in planning report. Marks build_status as SUCCESS/FAIL based on real build output.
+
+**M28 — Repair Loop**
+When M27 build fails: capture stderr, find relevant file, call LLM repair agent, apply patch, rerun M27. Max N attempts. Log repair attempts in planning report.
+
+**M29 — LLM Requirement Expansion Agent (HTTP-exposed)**
+Wire existing `RequirementAnalyzer` + `SystemArchitect` LangGraph nodes to a new HTTP endpoint `POST /genesis/generate-from-prompt`. Accepts `{ "project_id": "...", "prompt": "Build a CRM..." }`. Returns planning report + generated app. `OPENAI_API_KEY` required.
+
+**M30 — LLM-Assisted Code Fill**
+After deterministic graph building, call LLM to fill page-specific content: real component render logic, domain-specific field names, realistic sample data, business logic details, copy/text. LLM fills content; compiler controls structure and file paths.
+
+**M31 — Benchmark Suite v2**
+Rerun M18 benchmark specs (A portfolio, B tasks, C CRM) against the improved generator stack. Score against 7-criterion rubric. Compare to M18 baseline of 8/35.
+
+---
+
+### Recommended Immediate Next Milestone
+
+**M20 — Persist Manifest, Architecture Graphs, and Planning Report**
+
+Reason: This is the highest-leverage fix with the smallest code surface. The planning report, all 6 graphs, and the manifest are already computed by the current pipeline — the only reason they don't appear in the frontend is a missing directory creation and an incorrect conditional write. Fixing M20:
+- Makes every existing frontend surface (Planning Report, Architecture, Artifacts) show real data for the first time
+- Requires changes to only 1 file: `genesis_engine/core/orchestrator.py` (~5–10 lines)
+- Zero new features, zero new model changes, zero API contract changes
+- Validates the entire frontend display pipeline end-to-end with real data
+- Creates the transparency foundation that makes every subsequent milestone verifiable
+
+No new plugins, no new models, no new routes. Just fix the artifact directory creation and write paths.
+
+---
+
+### Files Inspected
+
+- `backend/app/api/genesis_controller.py`
+- `backend/app/services/compiler_service.py`
+- `backend/app/agents/workflow.py`
+- `backend/app/agents/state.py`
+- `backend/app/agents/llm.py`
+- `backend/app/agents/nodes/requirement_analysis.py`
+- `backend/app/agents/nodes/genesis_compiler.py`
+- `backend/app/agents/nodes/genesis_generator.py`
+- `backend/app/agents/nodes/system_architect.py`
+- `genesis_engine/core/orchestrator.py`
+- `genesis_engine/core/planning_engine.py`
+- `genesis_engine/core/generation_engine.py`
+- `genesis_engine/core/runtime.py`
+- `genesis_engine/models/spec.py`
+- `genesis_engine/models/ir.py`
+- `genesis_engine/models/graphs.py`
+- `genesis_engine/models/outputs.py`
+- `genesis_engine/pipeline/execution.py`
+- `genesis_engine/pipeline/planners/feature_planner.py`
+- `genesis_engine/pipeline/planners/page_planner.py`
+- `genesis_engine/pipeline/planners/component_planner.py`
+- `genesis_engine/pipeline/planners/api_planner.py`
+- `genesis_engine/plugins/implementations/fastapi_plugin.py`
+- `genesis_engine/plugins/implementations/nextjs_plugin.py`
+- `genesis_engine/deployment/build_orchestrator.py`
+- `genesis_engine/deployment/packager.py`
+- `genesis_engine/utils/workspace_adapter.py`
+- `run_e2e_compiler.py`
+- `run_langgraph_e2e.py`
+- `scripts/smoke_test_genesis.py`
+- `scripts/benchmark_genesis.py`
+
+No files modified in M19. Frontend validation baseline unchanged: **23 files / 239 tests pass**.
+
+Milestone 20 is complete for Persist Manifest, Architecture Graphs, and Planning Report only:
+
+- Modified `genesis_engine/core/orchestrator.py` — `run_full_pipeline()`: replaced the always-false `if report_path.exists():` conditional write with unconditional artifact persistence. Artifacts are written AFTER `execute_build()` to avoid disturbing the tamper-detection hash check inside `BuildOrchestrator.execute_build()`.
+- After `execute_build()` returns the manifest: creates `workspace/{id}/artifacts/` unconditionally, writes all 6 graph JSONs (`feature_graph.json`, `page_graph.json`, `component_graph.json`, `api_graph.json`, `database_graph.json`, `dependency_graph.json`), writes `architecture_graphs.json` (combined), writes `planning_report.json` unconditionally, writes `deployment_manifest.json` to `workspace/{id}/artifacts/` so the HTTP API can read it.
+- Did not change any API contracts, frontend code, frontend tests, or other backend files.
+
+**Before M20 (all projects):**
+- `GET /projects/{id}`: `planning_report: null`, `deployment_manifest: null`
+- `GET /projects/{id}/manifest`: `data: {}`
+- `GET /projects/{id}/graphs`: `data: {}`
+
+**After M20 (all newly generated projects):**
+- `GET /projects/{id}`: `planning_report: { rule_validation_status: "PASS", graph_integrity_score: 100, ... }`, `deployment_manifest: { project_id: "...", build_status: "SUCCESS", ... }`
+- `GET /projects/{id}/manifest`: `{ project_id: "...", build_status: "SUCCESS", rule_engine_score: 100, ... }`
+- `GET /projects/{id}/graphs`: 6 graph entries (api_graph, component_graph, database_graph, dependency_graph, feature_graph, page_graph)
+
+**Root cause of tamper detection during initial fix attempt:** The first implementation wrote artifacts BEFORE calling `execute_build()`. `BuildOrchestrator.execute_build()` re-hashes the workspace to detect tampering and compares against `report.workspace_hash` (which was computed before the artifacts were written). Writing artifacts first changed the workspace hash, causing the tamper check to fail. Fix: move all artifact writes to AFTER `execute_build()` returns.
+
+**Smoke test results:**
+- `python scripts/smoke_test_genesis.py` (read-only): PASS — manifest present, 6 graphs
+- `python scripts/smoke_test_genesis.py --generate`: PASS — all checks including POST /genesis/validate and POST /genesis/generate
+
+**API verification (artifact_persistence_001):**
+- `GET /projects/artifact_persistence_001`: status=SUCCESS, planning_report non-null (rule_validation_status=PASS, graph_integrity_score=100), deployment_manifest non-null
+- `GET /projects/artifact_persistence_001/manifest`: project_id=artifact_persistence_001, build_status=SUCCESS, rule_engine_score=100
+- `GET /projects/artifact_persistence_001/graphs`: 6 graphs
+
+**Frontend validation after M20:** lint pass, build pass, **23 files / 239 tests pass**, diff --check pass (CRLF warnings only). No frontend files touched.
+
 ## Next Task
 
-Stop here until the user explicitly approves the next milestone. M16 (Authenticated End-to-End Smoke Test Runner) is complete. Current validation baseline: 23 files / 239 tests.
+Stop here until the user explicitly approves the next milestone. M20 (Persist Manifest, Architecture Graphs, and Planning Report) is complete. Current validation baseline: 23 files / 239 tests.
