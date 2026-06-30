@@ -958,7 +958,7 @@ docker-compose.yml  Dockerfile.frontend  Dockerfile.backend
 
 ## Next Task
 
-Stop here until the user explicitly approves the next milestone. M25 (Rich App Spec v2 and Approved Plan Compiler Mapping) is complete. Current validation baseline: 23 files / 239 tests.
+Stop here until the user explicitly approves the next milestone. M26 (FastAPI Entity, Schema, and CRUD Generator Foundation) is complete. Current validation baseline: 23 files / 239 tests.
 
 Milestone 25 is complete for Rich App Spec v2 and Approved Plan Compiler Mapping only:
 
@@ -1063,3 +1063,65 @@ backend/app/main.py                  (unchanged)
 **No changes to:** orchestrator, generation_engine, workspace_adapter, build_orchestrator, packager, models, API controller, frontend product code, or tests.
 
 **Frontend validation after M24:** Frontend not touched. Baseline unchanged: **23 files / 239 tests pass**.
+
+Milestone 26 is complete for FastAPI Entity, Schema, and CRUD Generator Foundation only:
+
+**Goal:** Replace the placeholder FastAPI backend generator with a real entity-aware structure. When the pipeline has database tables (entities), generate proper Pydantic schemas, in-memory storage, per-entity CRUD routers, and a clean `main.py`. No real database — in-memory dict. No SQLAlchemy. No migrations. Backward compatible with simple specs.
+
+**1 file rewritten (plugin only, no orchestrator/controller/model changes):**
+
+`genesis_engine/plugins/implementations/fastapi_plugin.py` — complete rewrite of the `FastApiPlugin` class:
+
+- `_pluralize(name)` static method — y→ies (activity→activities), s/x/z→es, else +s.
+- `_generate_config_files()` — unchanged from M24: requirements.txt, __init__.py, .env.example.
+- `_generate_schemas_code(entities)` — Pydantic `BaseModel` classes per entity: `{Name}Base`, `{Name}Create`, `{Name}` (with `id: int`). 18 classes for 6 CRM entities.
+- `_generate_storage_code(entities)` — in-memory `_stores: Dict[str, Dict[int, Any]]` and `_counters` per entity, plus `get_store(entity)` and `next_id(entity)` helpers.
+- `_generate_router_code(table, plural)` — `APIRouter` per entity with 5 endpoints: `GET /`, `GET /{item_id}`, `POST /`, `PUT /{item_id}`, `DELETE /{item_id}`. 404 via `HTTPException` for missing IDs.
+- `_generate_entity_main_code(plurals)` — `FastAPI(title="Genesis App")` with one `include_router()` per entity, plus `GET /health` → `{"status": "ok"}`.
+- `_generate_entity_backend(entities)` — orchestrates entity path: schemas.py, storage.py, routers/__init__.py, per-entity routers/{plural}.py, main.py. Each file validated with `PythonValidator` before artifact creation.
+- `_generate_minimal_backend(api_graph)` — original page-derived stub main.py (backward compatibility).
+- `generate(context)` — bifurcates on `context.database_graph.tables`: non-empty → entity path, empty → minimal path.
+
+**Generated file tree for `crm_crud_001` (CRM — 6 entities: Customer, Deal, Activity, User, Team, Note):**
+```
+backend/requirements.txt
+backend/.env.example
+backend/app/__init__.py
+backend/app/schemas.py       (18 Pydantic classes)
+backend/app/storage.py       (_stores + _counters + get_store + next_id)
+backend/app/routers/__init__.py
+backend/app/routers/customers.py
+backend/app/routers/deals.py
+backend/app/routers/activities.py
+backend/app/routers/users.py
+backend/app/routers/teams.py
+backend/app/routers/notes.py
+backend/app/main.py          (6 include_router calls + /health)
+```
+
+**Validation (34 checks — all PASS via `scripts/validate_m26.py`):**
+- `py_compile genesis_engine/plugins/implementations/fastapi_plugin.py` ✓
+- `GET /health` + auth + CRM propose (7 pages, 6 entities, method=deterministic_fallback) ✓
+- `POST /genesis/approve-and-generate` → build_status=SUCCESS ✓
+- All 6 required files exist (requirements.txt, __init__.py, schemas.py, storage.py, main.py, routers/__init__.py) ✓
+- 6 entity router files exist (activities.py, customers.py, deals.py, notes.py, teams.py, users.py) ✓
+- main.py contains `include_router` calls and `/health` endpoint ✓
+- All 11 generated backend .py files pass `py_compile` ✓
+- schemas.py: `BaseModel` imported, 18 class definitions ✓
+- storage.py: `_stores`, `get_store`, `next_id` all present ✓
+- activities.py: `APIRouter`, `@router.get`, `@router.post`, `@router.put`, `@router.delete` all present ✓
+- frontend/package.json exists, 16 .tsx files ✓
+- `approve_plan_genesis.py`: PASS ✓
+- `smoke_test_genesis.py --generate`: PASS ✓
+
+**Backward compatibility:** Simple specs with no entities (e.g. `smoke_test_001`) hit `_generate_minimal_backend(api_graph)` — original stub main.py, no schemas/storage/routers. Verified via smoke test.
+
+**Remaining risks / deferred to future milestones:**
+- Entity `attributes` are ignored — all schemas use `name: str = ""` as the only field. Real field generation from plan entity definitions is M27+ scope.
+- Storage is pure in-memory dict (no persistence, no SQLAlchemy). Connecting to a real database is a later milestone.
+- `ir.api_routes` (plan's proposed API routes as strings) is still not consumed by `ApiPlanner`. The entity path takes over from the plan's database graph, not from api_routes strings.
+
+**Scripts:**
+- `scripts/validate_m26.py` (new) — 34-check M26 validation runner.
+
+**Frontend validation after M26:** Frontend not touched. Baseline unchanged: **23 files / 239 tests pass**.

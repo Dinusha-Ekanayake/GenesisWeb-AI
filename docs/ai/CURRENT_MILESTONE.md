@@ -1,6 +1,6 @@
 # Current Milestone
 
-Status: complete — Milestone 25 (Rich App Spec v2 and Approved Plan Compiler Mapping).
+Status: complete — Milestone 26 (FastAPI Entity, Schema, and CRUD Generator Foundation).
 
 ## Completed Milestones
 
@@ -39,6 +39,7 @@ Status: complete — Milestone 25 (Rich App Spec v2 and Approved Plan Compiler M
 - M23: Approval-Gated Plan Validation and Generate Flow
 - M24: Generated App Package Configs and Build-Ready Skeleton
 - M25: Rich App Spec v2 and Approved Plan Compiler Mapping
+- M26: FastAPI Entity, Schema, and CRUD Generator Foundation
 
 ## Current Validation Baseline
 
@@ -51,14 +52,14 @@ npm.cmd test
 git diff --check
 ```
 
-Expected baseline (M25): lint pass, build pass, **23 files / 239 tests pass**, diff --check pass (CRLF warnings only).
-Frontend product code was not touched in M25.
+Expected baseline (M26): lint pass, build pass, **23 files / 239 tests pass**, diff --check pass (CRLF warnings only).
+Frontend product code was not touched in M26.
 
-Engine/backend files changed in M25 (4 modified files):
-- `genesis_engine/models/spec.py` (added 13 optional rich fields to `ProjectSpecification`)
-- `genesis_engine/models/ir.py` (added 6 optional rich fields to `GenesisIR`)
-- `genesis_engine/core/planning_engine.py` (imported `GenesisEntity`; updated `_convert_spec_to_ir()`)
-- `backend/app/api/genesis_controller.py` (updated plan→spec conversion to map all 13 rich fields)
+Engine/backend files changed in M26 (1 modified file):
+- `genesis_engine/plugins/implementations/fastapi_plugin.py` (complete rewrite with entity-aware CRUD generation)
+
+Scripts added in M26:
+- `scripts/validate_m26.py` — M26 validation runner (34 checks; PASS)
 
 ## Stopping Point
 

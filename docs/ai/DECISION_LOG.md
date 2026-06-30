@@ -1,5 +1,37 @@
 # Decision Log
 
+## 2026-06-30 23:30 +05:30
+
+Decision: M26 — FastAPI Entity, Schema, and CRUD Generator Foundation. Replace the placeholder backend generator with a real entity-aware CRUD structure. In-memory storage (no database, no SQLAlchemy). Backward compatible with simple specs (no entities → falls back to minimal path).
+
+**Key decisions:**
+
+1. **No real database — in-memory dict only.** `storage.py` uses `Dict[str, Dict[int, Any]]` keyed by entity name. No SQLAlchemy, no migrations, no ORM imports. Connecting to a real database is a future milestone. This keeps M26 self-contained and eliminates a whole class of runtime dependency problems.
+
+2. **`_pluralize()` handles all 6 CRM entity names correctly.** `y→ies` rule covers Activity→activities; `s/x/z→es` rule handles edge cases; default `+s` handles the rest. All 6 CRM entities pluralize correctly: customers, deals, activities, users, teams, notes.
+
+3. **Bifurcate on `context.database_graph.tables`, not on `ir.entities`.** The plugin receives a `RuleContext`, not the IR directly. `context.database_graph.tables` is the right signal — it reflects what `DatabasePlanner` actually built from the entities. Empty tables → minimal path (backward compat). Non-empty → entity path.
+
+4. **`PythonValidator` applied to every generated file before artifact creation.** All 5 code generators (`_generate_schemas_code`, `_generate_storage_code`, `_generate_router_code`, `_generate_entity_main_code`, plus `_generate_minimal_backend`) run `PythonValidator.validate()` before creating the `FileArtifact`. Generation fails fast on any syntax error rather than silently writing broken code.
+
+5. **Router files use relative imports** (`from ..schemas import ...`, `from ..storage import ...`). This matches the `backend/app/routers/` directory depth relative to `backend/app/`. No absolute package imports that would require knowing the deployment package name.
+
+6. **f-string brace escaping for generated code literals.** Template strings like `f'    "{t.name.lower()}": {{}},'` produce `"customer": {}` (double-braces escape to single brace in f-strings). Path parameters like `f'@router.get("/{{item_id}}", ...)'` produce `@router.get("/{item_id}", ...)`. Regular string `'    return {"status": "ok"}'` passes through literal braces without escaping.
+
+7. **Entity schemas use `name: str = ""` as the only field.** Real plan entity `attributes` are currently empty dicts (M25 set them to `attributes={}`). Rather than generate empty schemas or fail, the plugin generates a minimal working schema with one representative field. This makes the generated API functional without requiring attribute-level planning. Full attribute-driven field generation is a future milestone.
+
+8. **`_generate_config_files()` is unchanged from M24.** requirements.txt, __init__.py, .env.example are always emitted regardless of entity path or minimal path. They are emitted first before the bifurcation decision.
+
+**Files changed:**
+- `genesis_engine/plugins/implementations/fastapi_plugin.py` — complete class rewrite (1 file)
+- `scripts/validate_m26.py` — new 34-check M26 validation runner
+
+**Validation (crm_crud_001 — 6 entities: Customer, Deal, Activity, User, Team, Note):**
+- All 34 checks PASS via `scripts/validate_m26.py` ✓
+- `py_compile` clean on plugin file + all 11 generated backend .py files ✓
+- `approve_plan_genesis.py` (7 sections): PASS ✓
+- `smoke_test_genesis.py --generate`: PASS ✓ (backward compat verified)
+
 ## 2026-06-30 22:00 +05:30
 
 Decision: M25 — Rich App Spec v2 and Approved Plan Compiler Mapping. Extend `ProjectSpecification` and `GenesisIR` with rich plan fields so the full approved plan is preserved through the compiler pipeline, not just pages and components.
