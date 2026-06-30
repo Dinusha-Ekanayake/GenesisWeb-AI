@@ -1,6 +1,6 @@
 # Current Milestone
 
-Status: complete — Milestone 7 (Command Palette and Keyboard Shortcuts).
+Status: complete — Milestone 8 (Search Route / Global Search Surface).
 
 ## Completed Milestones
 
@@ -21,6 +21,7 @@ Status: complete — Milestone 7 (Command Palette and Keyboard Shortcuts).
 - M5.6: Run Detail Visual QA and Consistency Pass
 - M6: Dashboard / Product Home Redesign
 - M7: Command Palette and Keyboard Shortcuts
+- M8: Search Route / Global Search Surface
 
 ## Current Validation Baseline
 
@@ -33,7 +34,7 @@ npm.cmd test
 git diff --check
 ```
 
-Expected baseline (M7): lint pass, build pass, **19 files / 154 tests pass**, diff --check pass (CRLF warnings only).
+Expected baseline (M8): lint pass, build pass, **20 files / 178 tests pass**, diff --check pass (CRLF warnings only).
 
 ## Stopping Point
 

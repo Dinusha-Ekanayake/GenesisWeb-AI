@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import ProjectsPage from "../src/app/(app)/projects/page";
 import RunsPage from "../src/app/(app)/runs/page";
 import CompilerPage from "../src/app/(app)/compiler/page";
+import SearchPage from "../src/app/(app)/search/page";
 import type { ProjectData } from "../src/app/dashboard/types/genesis";
 
 const useProjectsMock = vi.fn();
@@ -60,5 +61,14 @@ describe("target route architecture", () => {
 
     expect(screen.getByTestId("compiler-workspace")).toBeInTheDocument();
     expect(screen.queryByText(/No new compiler UI/i)).not.toBeInTheDocument();
+  });
+
+  it("renders the search page with a Search heading and a search input", () => {
+    useProjectsMock.mockReturnValue({ data: [], isLoading: false, error: null });
+
+    render(<SearchPage />);
+
+    expect(screen.getByRole("heading", { name: "Search" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Search")).toBeInTheDocument();
   });
 });

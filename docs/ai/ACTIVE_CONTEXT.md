@@ -344,6 +344,25 @@ Current validation status after Milestone 7:
 - `npm.cmd test` passes: **19 files, 154 tests**.
 - `git diff --check` passes with CRLF warnings only.
 
+Milestone 8 is complete for the Search Route / Global Search Surface only:
+
+- Created `frontend/src/components/search/search-index.ts` — pure module: `buildSearchResults(projects, query)` maps `ProjectData[]` through `toRunViewModel()` and filters by case-insensitive substring match against projectName, projectId, status, specName, specDescription. `deriveSurfaceLinks()` builds available surface hrefs from `RunCapabilities` flags using `backendProjectId` for all segments (identity rule: `run.id === project.id`). Returns `SearchResult[]` with `projectId`, `runId`, `projectName`, `status`, `specName?`, `specDescription?`, `surfaceLinks[]`.
+- Created `frontend/src/components/search/SearchResultCard.tsx` — pure component: renders project name link → run overview, backend ID (`ID: {projectId}` in mono), spec description if present, "View Run" primary link, capability-gated surface links (Planning Report, Architecture, Workspace, Artifacts, Compiler Trace). All hrefs use `backendProjectId`. `aria-label` on "View Run" link for screen-reader disambiguation.
+- Created `frontend/src/components/search/GlobalSearchPage.tsx` — "use client"; calls `useProjects()`, `buildSearchResults(projects, query)`, manages `useState(query)`. Renders inside `RouteScaffold(eyebrow: "Search", title: "Search")`. Four content states: loading (`LoadingState`), backend error (`ErrorState` with `--error` token), empty query (`EmptyQueryState` listing what can be searched), no-results (`LimitedState("No results")`), or result list. Persistent scope disclaimer: "Search currently covers projects and latest-known-run metadata only. File contents, compilation traces, and full Run history are not indexed."
+- Modified `frontend/src/app/(app)/search/page.tsx` — replaced `LimitedState("Search deferred")` with a single import and render of `GlobalSearchPage`. Route remains at `/search`.
+- Modified `frontend/tests/route-architecture.test.tsx` — added `SearchPage` import and one test: "renders the search page with a Search heading and a search input". Follows same mock pattern as existing route tests.
+- Created `frontend/tests/global-search.test.tsx` — 23 tests: heading, input, placeholder (projects/runs/statuses), scope disclaimer, file-contents disclaimer, loading state, loading hides results list, error state, empty query explanatory state (what can be searched), results from real data, backend ID in card, spec description in card, filter by name / ID / status, View Run link uses backendProjectId, Artifacts surface link href, Planning Report surface link href, no surface links when capability absent, no-results state, no fake data, no file-search claim.
+
+What is searchable: project name, backend project ID, status, spec name, spec description.
+What is NOT yet searchable: file contents, compilation trace text, planning report rule names, architecture graph internals, real Run history.
+
+Current validation status after Milestone 8:
+
+- `npm.cmd run lint` passes.
+- `npm.cmd run build` passes; `/search` now listed as `○ (Static)` at 2.22 kB.
+- `npm.cmd test` passes: **20 files, 178 tests**.
+- `git diff --check` passes with CRLF warnings only.
+
 ## Next Task
 
-Stop here until the user explicitly approves the next milestone. M7 (Command Palette and Keyboard Shortcuts) is complete. Current validation baseline: 19 files / 154 tests.
+Stop here until the user explicitly approves the next milestone. M8 (Search Route / Global Search Surface) is complete. Current validation baseline: 20 files / 178 tests.

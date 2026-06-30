@@ -1,5 +1,39 @@
 # Decision Log
 
+## 2026-06-30 02:30 +05:30
+
+Decision: Implement `/search` as a client-side filter over `useProjects()` data — no backend search endpoint, no fake results.
+
+Key decisions within M8:
+
+1. **Search is a pure client-side filter over existing hook data.** `buildSearchResults()` in `search-index.ts` receives the full `ProjectData[]` from `useProjects()`, maps each through `toRunViewModel()`, and returns only entries matching the query. No new API calls. No mock results.
+
+2. **Searchable fields are limited to what the adapter already surfaces.** Project name, backend project ID, status, spec name, spec description. Compilation traces, planning report rules, architecture graph contents, and workspace file contents are explicitly excluded and disclosed in the UI scope disclaimer.
+
+3. **`search-index.ts` is a pure module (no hooks, no imports from Next.js).** It can be unit-tested in isolation and imported from any future surface without side effects.
+
+4. **Surface links in result cards are capability-gated.** `deriveSurfaceLinks()` uses the same `RunCapabilities` flags that drive the Run Overview surface cards — `hasPlanningReport`, `hasArchitectureGraphs`, `hasWorkspaceFiles`, `hasArtifactManifest`, `hasCompilationTrace`. This keeps the search surface honest: it only shows links to surfaces that have real data.
+
+5. **All links use `backendProjectId` under the identity rule.** `projectId = project.id` and `runId = project.id` (same value). `/projects/${projectId}/runs/${runId}` and surface sub-paths follow the same pattern as the Run Overview. No URL-derived or invented IDs.
+
+6. **Persistent scope disclaimer.** The text "Search currently covers projects and latest-known-run metadata only. File contents, compilation traces, and full Run history are not indexed." is always visible below the input — not hidden behind a loading/error state.
+
+Files affected:
+
+- `frontend/src/components/search/search-index.ts` — new; `buildSearchResults`, `deriveSurfaceLinks`, `SearchResult` type
+- `frontend/src/components/search/SearchResultCard.tsx` — new; result card with name, ID, description, View Run link, surface links
+- `frontend/src/components/search/GlobalSearchPage.tsx` — new; "use client"; search input, states, result list, scope disclaimer
+- `frontend/src/app/(app)/search/page.tsx` — replaced LimitedState with `<GlobalSearchPage />`
+- `frontend/tests/global-search.test.tsx` — new; 23 tests
+- `frontend/tests/route-architecture.test.tsx` — added SearchPage import and 1 test
+- `docs/ai/ACTIVE_CONTEXT.md` — updated
+- `docs/ai/DECISION_LOG.md` — updated
+- `docs/ai/CURRENT_MILESTONE.md` — updated to M8 complete
+
+Risk: Low. `GlobalSearchPage` is a "use client" component using the same frozen `useProjects()` hook and adapter already used by `ControlPlaneHome`. No new backend calls. Search results are recalculated synchronously on each keystroke — no debounce needed for a project list that typically fits in memory. If the project count grows large, debouncing could be added without changing the component contract.
+
+Outcome: Lint, build, and all 178 tests (20 files) pass. `/search` renders a real search surface backed by live `useProjects()` data. The scope is honest: project metadata only, no fake results, no invented endpoints.
+
 ## 2026-06-30 02:00 +05:30
 
 Decision: Implement the command palette and all keyboard shortcuts as a lightweight custom implementation — no `cmdk` or other palette library added.
