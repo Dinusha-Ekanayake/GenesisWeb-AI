@@ -382,6 +382,44 @@ Current validation status after Milestone 9:
 - `npm.cmd test` passes: **21 files, 198 tests**.
 - `git diff --check` passes with CRLF warnings only.
 
+Milestone 10 is complete for the Telemetry Surface only:
+
+- Created `frontend/src/components/telemetry/telemetry-metrics.ts` — pure `deriveTelemetryMetrics(projects)` using `toRunCapabilities()` to compute: totalProjects, statusCounts[], avgPlanningDurationMs, planningReportCount, architectureGraphCount, artifactManifestCount, compilationTraceCount.
+- Created `frontend/src/components/telemetry/MetricCard.tsx`, `StatusBreakdown.tsx`, `CapabilityCoverage.tsx`, `RecentRunTelemetry.tsx` — composable display tiles; RecentRunTelemetry shows last 8 runs with links built via `backendProjectId`.
+- Created `frontend/src/components/telemetry/TelemetryPage.tsx` — "use client"; pulls from `useProjects()`, shows always-visible scope note ("metadata only, no live telemetry"), loading/error/empty/data states.
+- Updated `frontend/src/app/(app)/telemetry/page.tsx` to render `TelemetryPage`.
+- Added `frontend/tests/telemetry.test.tsx` with 23 tests.
+- Did not add live metrics, time-series charts, or a telemetry backend.
+
+Milestone 11 is complete for the Final Route QA and Production Readiness Pass only:
+
+- Removed `<Badge variant="secondary">Shell Ready</Badge>` from `AppHeader.tsx` and `<Badge variant="outline">Foundation</Badge>` from `RightPanel.tsx`.
+- Updated `RightPanel.tsx` copy to honest: "Open a Run to inspect its surfaces — planning report, architecture graphs, workspace files, and artifact bundle."
+- Fixed `ControlPlaneHome.tsx` "Deployed" stat to use `Boolean(p.deployment_manifest)` (presence) instead of `build_status === "COMPLETED"` (brittle string).
+- Updated `/team` page description to remove stale "milestone" language.
+- Updated `app-shell.test.tsx` and `control-plane-home.test.tsx` to match the above changes.
+
+Current validation baseline after M11: **22 files / 222 tests pass**.
+
+Milestone 12 is complete for Backend-Connected Manual Smoke Test Support only:
+
+**Inspection findings:**
+- Backend base URL: `http://127.0.0.1:8000/api/v1` (hardcoded fallback in `api-client.ts` and `hooks.ts`).
+- Required env var: `NEXT_PUBLIC_API_URL` (optional for local dev; must include `/api/v1` suffix).
+- No `frontend/.env.local` exists — the hardcoded fallback is the only config for local dev.
+- JWT auth: `POST /api/v1/auth/token` with form-data, returns `{ access_token }`. Frontend reads from `localStorage.genesis_token`. No login page exists in the App Router — testers must manually POST and set localStorage.
+- Static credentials: `developer` / `devpassword` (full permissions), `admin` / `admin`, `viewer` / `viewpassword`.
+- Backend CORS: allows `http://localhost:3000` and `http://127.0.0.1:3000` — covers both local dev modes.
+- SSE: `GET /api/v1/genesis/events?project_id=...&token=...` — token passed as query param (EventSource cannot set headers).
+- 11 backend endpoints used; all under `/api/v1/genesis/...`.
+- Pages offline-safe: `/settings`, `/team`, app shell nav, command palette, theme toggle.
+- Pages requiring backend: `/projects`, `/runs`, `/telemetry`, `/search`, `/compiler`, all `/projects/[id]/runs/[runId]` surfaces.
+
+**Real blocker found and fixed:**
+- `docker-compose.yml` line 47 had `NEXT_PUBLIC_API_URL=http://localhost:8000` (missing `/api/v1`). Every API call under Docker would 404. Fixed to `http://localhost:8000/api/v1`.
+
+No frontend source files changed. No tests added or changed. Validation baseline unchanged: **22 files / 222 tests pass**.
+
 ## Next Task
 
-Stop here until the user explicitly approves the next milestone. M9 (Settings / Preferences Surface) is complete. Current validation baseline: 21 files / 198 tests.
+Stop here until the user explicitly approves the next milestone. M12 (Backend-Connected Manual Smoke Test Support) is complete. Current validation baseline: 22 files / 222 tests.

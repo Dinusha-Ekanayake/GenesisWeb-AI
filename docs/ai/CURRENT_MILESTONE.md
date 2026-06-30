@@ -1,6 +1,6 @@
 # Current Milestone
 
-Status: complete — Milestone 11 (Final Route QA and Production Readiness Pass).
+Status: complete — Milestone 12 (Backend-Connected Manual Smoke Test Support).
 
 ## Completed Milestones
 
@@ -25,6 +25,7 @@ Status: complete — Milestone 11 (Final Route QA and Production Readiness Pass)
 - M9: Settings / Preferences Surface
 - M10: Telemetry Surface
 - M11: Final Route QA and Production Readiness Pass
+- M12: Backend-Connected Manual Smoke Test Support
 
 ## Current Validation Baseline
 
@@ -37,7 +38,9 @@ npm.cmd test
 git diff --check
 ```
 
-Expected baseline (M11): lint pass, build pass, **22 files / 222 tests pass**, diff --check pass (CRLF warnings only).
+Expected baseline (M12): lint pass, build pass, **22 files / 222 tests pass**, diff --check pass (CRLF warnings only).
+
+M12 changed only `docker-compose.yml` (not a frontend source file) — test count and build output are unchanged from M11.
 
 ## Stopping Point
 
