@@ -48,7 +48,8 @@ class PlanningEngine(Planner):
             entities=[],
             roles=[],
             workflows=[],
-            features=spec.pages + spec.components
+            features=spec.pages,
+            components=spec.components,
         )
         
     def validate_blueprint(self, spec: ProjectSpecification):

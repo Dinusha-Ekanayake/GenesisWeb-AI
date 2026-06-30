@@ -1,5 +1,70 @@
 # Decision Log
 
+## 2026-06-30 16:00 +05:30
+
+Decision: M22 — Planning-First Architecture and Tech Stack Proposal. Add `POST /genesis/propose` for prompt-to-plan conversion before any code generation.
+
+**Key decisions:**
+
+1. **New endpoint at `/genesis/propose`, NOT `/genesis/plan`.** `POST /genesis/plan` already exists and validates a structured `ProjectSpecification` against the rule engine. Using the same path for prompt-based planning would conflict. `/genesis/propose` is a distinct, clearly-named endpoint for the new planning-first flow.
+
+2. **`PlanningService` is standalone — does not use the LangGraph workflow.** The existing LangGraph workflow routes RequirementAnalyzer → GenesisCompiler → GenesisGenerator with no stop point. A standalone `PlanningService.propose()` calls the LLM directly (or deterministic fallback), returns the plan, and never calls the compiler or generator.
+
+3. **Flat `LLMApplicationProposal` for structured output, nested `TechnologyStack` built separately.** Deeply-nested Pydantic models in `with_structured_output()` can cause JSON schema issues. `LLMApplicationProposal` is flat; the service constructs the full `TechnologyStack` from LLM hints + user preferences.
+
+4. **Explicit `generation_method` field distinguishes LLM from fallback.** `ProposedApplicationPlan.generation_method` is `"llm"` or `"deterministic_fallback"`. Never pretends LLM output was used when fallback was used.
+
+5. **Deterministic fallback uses keyword detection + 9 blueprint templates.** App types: crm, portfolio, booking_platform, task_management, blog_cms, ecommerce, lms, saas_dashboard, web_application. Fallback always adds an explicit FALLBACK warning to `plan.warnings`.
+
+6. **`import json` added to `genesis_controller.py`.** Pre-existing bug: SSE event generator at line 326 called `json.dumps()` without `json` imported. Fixed as part of M22 controller edit.
+
+7. **Planning endpoint does NOT write workspace files.** `PlanningService.propose()` is pure memory — no disk writes. Verified: no `plan_*` directories in `workspace/` after all 3 planning calls.
+
+**Files changed:**
+- `genesis_engine/models/planning.py` (new)
+- `backend/app/services/planning_service.py` (new)
+- `backend/app/api/genesis_controller.py` (added `POST /genesis/propose` + `import json`)
+- `scripts/plan_genesis.py` (new)
+
+**Validation:**
+- `py_compile` clean on all 6 files
+- `smoke_test_genesis.py` (read-only + --generate): PASS
+- `plan_genesis.py` (3 prompts): PASS — portfolio, crm, booking_platform detected; all PENDING approval
+- No workspace dirs created during planning
+- Frontend baseline unchanged: **23 files / 239 tests pass**
+
+## 2026-06-30 14:00 +05:30
+
+Decision: M21 — Fix page/component conflation in compiler IR. Separate `spec.pages` and `spec.components` so components are never generated as routes or API endpoints.
+
+**Key decisions:**
+
+1. **Fix at the IR level, not at the planner level.** Adding `components: List[str]` to `GenesisIR` and fixing `_convert_spec_to_ir()` to use `features=spec.pages` (pages only) automatically fixes all three downstream planners (`FeaturePlanner`, `PagePlanner`, `ApiPlanner`) without touching them. They already only read `ir.features`. This is the minimal-change approach.
+
+2. **Distinguish spec-declared components from auto-generated ones via `created_by` metadata.** `ComponentPlanner` already generates `DashboardLayout` and per-page macro view components in the `ComponentGraph`. Rather than creating a new graph or a new model field, spec-declared components are added to the same `ComponentGraph` with `metadata.created_by = "SpecComponent"`. The `NextJsPlugin` filters by this field to emit only spec components as files. This avoids any changes to `RuleContext`, `RuleBase`, or the graph models.
+
+3. **Do not change `FastApiPlugin`, `ApiPlanner`, or `PagePlanner`.** These three are already correct once `ir.features` contains only pages. Making additional changes to them would widen the diff and introduce unnecessary risk. The cascading fix from the IR change is sufficient.
+
+4. **Component files go to `frontend/components/{Name}.tsx`, not `frontend/app/`.** This follows the Next.js App Router convention: pages are in `app/`, reusable components are in `components/`. The component stub content is minimal (`<div><span>{Name}</span></div>`) — intentionally so, matching the minimal-generator philosophy for this milestone. Rich content is M25+ scope.
+
+5. **Component names are used as-is from spec.** `spec.components = ["Navbar", "ProjectCard"]` → `frontend/components/Navbar.tsx`, `frontend/components/ProjectCard.tsx`. No lowercasing, no route-conversion. The `comp_id` in the graph uses `comp_name.lower()` to avoid case-sensitive node ID collisions, but the file name uses the original PascalCase.
+
+**Files changed:**
+- `genesis_engine/models/ir.py` — added `components: List[str]` field
+- `genesis_engine/core/planning_engine.py` — `_convert_spec_to_ir()`: `features=spec.pages, components=spec.components`
+- `genesis_engine/pipeline/planners/component_planner.py` — added spec component nodes with `created_by="SpecComponent"`
+- `genesis_engine/plugins/implementations/nextjs_plugin.py` — added component file generation filtered by `created_by=="SpecComponent"`
+
+**Validation (component_ir_001 — 3 pages + 4 components):**
+- feature_graph: 3 nodes (pages only)
+- api_graph: 6 endpoints (GET+POST × 3 pages, no component endpoints)
+- component_graph: 8 nodes (4 auto + 4 spec with `created_by=SpecComponent`)
+- `frontend/app/`: 3 page files (home, projects, contact)
+- `frontend/components/`: 4 files (Navbar, ProjectCard, ContactForm, Footer)
+- No `/api/v1/navbar`, `/api/v1/footer`, etc.
+- All M20 artifact persistence still works: 9 files in `artifacts/`
+- Frontend baseline unchanged: **23 files / 239 tests pass**
+
 ## 2026-06-30 13:45 +05:30
 
 Decision: M20 — Fix artifact persistence gap in `run_full_pipeline()`. Write all 6 graph JSONs, planning report, and deployment manifest to `workspace/{id}/artifacts/` after every generate call.

@@ -1,3 +1,4 @@
+import json
 import os
 import sys
 import asyncio
@@ -85,6 +86,36 @@ def handle_exceptions(func):
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
     return wrapper
+
+@router.post("/propose", dependencies=[Depends(RequirePermission(Permission.COMPILE))])
+@handle_exceptions
+async def propose_plan(body: dict):
+    """
+    Planning-only endpoint. Accepts a natural language prompt and optional
+    technology preferences; returns a ProposedApplicationPlan.
+    No workspace files are written. No code is generated.
+    The plan requires explicit approval before generation can proceed.
+    """
+    prompt = body.get("prompt", "").strip()
+    if not prompt:
+        raise HTTPException(status_code=422, detail="Field 'prompt' is required and must not be empty.")
+
+    preferences = body.get("preferences", {})
+    if not isinstance(preferences, dict):
+        preferences = {}
+
+    project_id = body.get("project_id") or f"plan_{uuid.uuid4().hex[:8]}"
+
+    from backend.app.services.planning_service import PlanningService
+    service = PlanningService()
+    plan = await asyncio.to_thread(service.propose, prompt=prompt, preferences=preferences, project_id=project_id)
+
+    return api_response({
+        "plan": plan.model_dump(),
+        "editable": True,
+        "requires_approval_before_generation": True,
+    })
+
 
 @router.post("/parse", dependencies=[Depends(RequirePermission(Permission.COMPILE))])
 @handle_exceptions

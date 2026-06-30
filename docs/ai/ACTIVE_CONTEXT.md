@@ -796,6 +796,95 @@ Milestone 20 is complete for Persist Manifest, Architecture Graphs, and Planning
 
 **Frontend validation after M20:** lint pass, build pass, **23 files / 239 tests pass**, diff --check pass (CRLF warnings only). No frontend files touched.
 
+Milestone 21 is complete for Separate Pages and Components in Compiler IR only:
+
+**Root cause fixed:** `_convert_spec_to_ir()` in `genesis_engine/core/planning_engine.py` was concatenating `spec.pages + spec.components` into a single flat `ir.features` list. Every downstream planner treated pages and components identically, causing components like Navbar and Footer to become routes and API endpoints.
+
+**4 files changed (backend only, no frontend product code touched):**
+
+1. `genesis_engine/models/ir.py` — added `components: List[str]` field to `GenesisIR` so spec-declared components can be carried separately from page features.
+
+2. `genesis_engine/core/planning_engine.py` — fixed `_convert_spec_to_ir()` to use `features=spec.pages` (pages only) and `components=spec.components` (separate). `FeaturePlanner`, `PagePlanner`, and `ApiPlanner` all read `ir.features` and were automatically fixed without needing changes.
+
+3. `genesis_engine/pipeline/planners/component_planner.py` — added spec-declared component nodes to `ComponentGraph` with `created_by="SpecComponent"` (distinct from auto-generated `DashboardLayout` and page macro views). This populates the graph for downstream plugin consumption.
+
+4. `genesis_engine/plugins/implementations/nextjs_plugin.py` — extended to emit `frontend/components/{Name}.tsx` for each `ComponentGraph` node where `metadata.created_by == "SpecComponent"`. Pages continue to generate under `frontend/app/{route}/page.tsx` unchanged.
+
+**Generated output for `component_ir_001` (3 pages + 4 components):**
+
+| Item | Before M21 | After M21 |
+|---|---|---|
+| `feature_graph` nodes | 7 (pages+components) | 3 (pages only) |
+| `api_graph` endpoints | 14 (2×7) | 6 (2×3 pages) |
+| `component_graph` nodes | 8 auto | 8 (4 auto + 4 spec) |
+| `frontend/app/` files | 7 page files | 3 page files |
+| `frontend/components/` files | none | 4 component stubs |
+| Backend endpoints for Navbar etc. | `GET/POST /api/v1/navbar` | none |
+
+**Verified generated structure (component_ir_001):**
+```
+frontend/app/home/page.tsx
+frontend/app/projects/page.tsx
+frontend/app/contact/page.tsx
+frontend/components/Navbar.tsx
+frontend/components/ProjectCard.tsx
+frontend/components/ContactForm.tsx
+frontend/components/Footer.tsx
+backend/app/main.py  (6 endpoints: GET+POST for home, projects, contact only)
+artifacts/ (9 files: all M20 persistence still works)
+```
+
+**API verification (component_ir_001):**
+- `GET /projects/component_ir_001`: total_features=3, total_pages=3, total_apis=6, total_components=8, rule_validation_status=PASS
+- `GET /projects/component_ir_001/manifest`: build_status=SUCCESS, rule_engine_score=100
+- `GET /projects/component_ir_001/graphs`: 6 graph entries
+
+**Smoke tests:** Both read-only and `--generate` pass. `py_compile` clean for both scripts.
+
+**Frontend validation after M21:** lint pass, build pass, **23 files / 239 tests pass** (baseline unchanged). No frontend product files were touched.
+
+**Remaining risks (deferred to future milestones):**
+- Component stubs in `frontend/components/` are minimal (just a `<div><span>{Name}</span></div>`). Real component code generation is M25+ scope.
+- Pages still use `"DashboardLayout"` as the layout for all routes regardless of app type — M22 (blueprint selection) scope.
+- `planning_report.total_features` now reports only page count (3), not total spec items (7). This is semantically correct but is a visible change in the planning report for existing projects.
+
+Milestone 22 is complete for Planning-First Architecture and Tech Stack Proposal only:
+
+**New concept: ProposedApplicationPlan.** The backend now has a planning-only endpoint that converts a natural language prompt into a structured application proposal before any code is generated. Nothing is written to disk. No compiler or generator is called. The plan requires explicit user approval before generation can proceed.
+
+**New endpoint: `POST /api/v1/genesis/propose`.** Accepts `{ "prompt": "...", "preferences": {...} }`. Returns `ProposedApplicationPlan` with `approval_status: "PENDING"` and `requires_approval_before_generation: true`. Does not conflict with existing `POST /genesis/plan` (which validates a structured spec).
+
+**4 files added/modified (backend only, no frontend product code):**
+
+1. `genesis_engine/models/planning.py` (new) — `ProposedApplicationPlan`, `TechnologyStack` (with 7 sub-models: FrontendStack, BackendStack, DatabaseStack, AiStack, AuthStack, DeploymentStack, TestingStack), `LLMApplicationProposal` (flat schema for LLM structured output)
+
+2. `backend/app/services/planning_service.py` (new) — `PlanningService` with LLM path (via `langchain_openai.ChatOpenAI` + `with_structured_output(LLMApplicationProposal)`) and deterministic fallback (keyword detection → 9 blueprint templates). `generation_method` field is always honest: `"llm"` or `"deterministic_fallback"`.
+
+3. `backend/app/api/genesis_controller.py` — added `POST /genesis/propose` endpoint; also added `import json` (pre-existing bug: SSE generator at line ~326 called `json.dumps()` without the import).
+
+4. `scripts/plan_genesis.py` (new) — planning smoke test with 3 example prompts (photography portfolio, CRM, hotel booking).
+
+**Planning flow (confirmed working):**
+- `POST /genesis/propose` with `{ "prompt": "Create a CRM..." }` → returns pages, components, entities, API routes, tech stack, assumptions, warnings, `approval_status: "PENDING"`
+- No workspace directories created
+- No compiler or generator invoked
+- LLM fallback clearly labeled: `generation_method: "deterministic_fallback"` + explicit FALLBACK warning in `plan.warnings`
+
+**`plan_genesis.py` output for 3 prompts (fallback path — no OPENAI_API_KEY set):**
+- Prompt A (photography portfolio) → `app_type=portfolio`, 5 pages, 7 components, 3 entities, 5 API routes
+- Prompt B (CRM) → `app_type=crm`, 7 pages, 8 components, 6 entities, 10 API routes
+- Prompt C (hotel booking) → `app_type=booking_platform`, 7 pages, 7 components, 6 entities, 8 API routes
+- All 3: `approval_status=PENDING`, `requires_approval_before_generation=true`
+
+**Smoke tests after M22:** Both read-only and `--generate` pass. `py_compile` clean for all scripts and new files.
+
+**Frontend validation after M22:** Frontend not touched. Baseline unchanged: **23 files / 239 tests pass**.
+
+**Remaining risks:**
+- LLM path is untested without `OPENAI_API_KEY` in this session. The LLM path requires `OPENAI_API_KEY` (or `OPENAI_BASE_URL` for OpenRouter). It will be exercised when an API key is set in the backend environment.
+- `ProposedApplicationPlan` is not yet connected to the compiler. A future milestone (M23+) will add an approval-gated generate flow: user approves the plan → plan converts to `ProjectSpecification` → existing compiler runs.
+- Blueprint templates are fixed for 9 app types. LLM path will produce more nuanced, prompt-derived proposals.
+
 ## Next Task
 
-Stop here until the user explicitly approves the next milestone. M20 (Persist Manifest, Architecture Graphs, and Planning Report) is complete. Current validation baseline: 23 files / 239 tests.
+Stop here until the user explicitly approves the next milestone. M22 (Planning-First Architecture and Tech Stack Proposal) is complete. Current validation baseline: 23 files / 239 tests.

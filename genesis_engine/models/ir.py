@@ -20,3 +20,4 @@ class GenesisIR(BaseModel):
     roles: List[GenesisRole] = Field(default_factory=list)
     workflows: List[GenesisWorkflow] = Field(default_factory=list)
     features: List[str] = Field(default_factory=list)
+    components: List[str] = Field(default_factory=list)
