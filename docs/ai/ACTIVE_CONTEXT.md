@@ -1543,3 +1543,31 @@ Milestone 33 is complete for Generator Architecture Refactor only:
 - `scripts/smoke_test_genesis.py --generate` → PASS
 
 **Platform frontend validation after M33:** Platform frontend not touched. Baseline unchanged: **23 files / 239 tests pass**.
+
+Milestone 34 is complete for Generated App UI Styling Foundation only:
+
+**Goal:** Improve the generated Next.js app's visual quality with a proper CSS design system and structured className attributes. No external UI libraries. No behavior changes.
+
+**Files modified:**
+
+- `genesis_engine/plugins/implementations/nextjs_generators/config_generator.py` — `globals.css` content extended from 3 Tailwind import lines to a full CSS design system (~100 lines). New classes: `.page-container`, `.page-title`, `.loading-text`, `.error-banner`, `.entity-form`, `.form-input`, `.form-label`, `.btn`, `.btn-primary`, `.btn-secondary`, `.btn-danger`, `.btn-sm`, `.data-table` (with `th`/`td`/`tr:hover` selectors), `.table-actions`, `.empty-state`. CSS comment uses ASCII only (`/* Genesis App - Generated Styles */`) to avoid Windows cp1252 encoding failure from em dashes.
+- `genesis_engine/plugins/implementations/nextjs_generators/entity_page_generator.py` — `generate_entity_page_code()` updated: all structural JSX elements now have `className` attributes. `error` state uses `className="error-banner"` instead of `style={{ color: "red" }}`. Table action buttons use `className="btn btn-sm btn-secondary"` / `className="btn btn-sm btn-danger"`. Empty-state paragraph rendered when `!loading && items.length === 0`.
+- `scripts/validate_m34.py` (new) — 11-section validation runner: backend health, auth, generate `styled_crud_app_001` (CRM prompt, 6 entities), file tree, globals.css selector/property checks (16 checks), customers/page.tsx className checks (13 checks), M32 CRUD baseline (20 checks), npm install, npm run build, backend py_compile (12 files), backward compat (`simple_no_entities_001`).
+
+**Design decisions:**
+- Plain CSS classes only; no Tailwind utility classes on generated JSX (Tailwind still present for future use).
+- `btn-secondary` / `btn-danger` class checks in validate_m34.py use substring matching (`btn-danger` in content) rather than exact `className="btn btn-danger"`, because table action buttons combine modifier classes (`btn-sm`).
+
+**Validation (all PASS):**
+- `scripts/validate_m34.py` → PASS (all checks, styled_crud_app_001 CRM project)
+- `scripts/validate_m32.py` → PASS
+- `scripts/validate_m31.py` → PASS
+- `scripts/validate_m30.py` → PASS
+- `scripts/validate_m29.py` → PASS
+- `scripts/validate_m28.py` → PASS
+- `scripts/validate_m27.py` → PASS
+- `scripts/validate_m26.py` → PASS
+- `scripts/approve_plan_genesis.py` → PASS
+- `scripts/smoke_test_genesis.py --generate` → PASS
+
+**Platform frontend validation after M34:** Platform frontend not touched. Baseline unchanged: **23 files / 239 tests pass**.

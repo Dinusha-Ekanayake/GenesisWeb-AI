@@ -1,5 +1,23 @@
 # Decision Log
 
+## 2026-07-01 (M34)
+
+Decision: M34 — Generated App UI Styling Foundation. Improve generated Next.js app visual quality with a full CSS design system in `globals.css` and structured `className` attributes throughout entity pages. No external UI libraries. No behavior changes.
+
+**Key decisions:**
+
+1. **Plain CSS classes, not Tailwind utility classes on JSX.** Generated entity pages use semantic class names (`.btn`, `.entity-form`, `.data-table`) rather than Tailwind utility chains. Keeps generated code readable and avoids coupling generated output to Tailwind's class vocabulary. Tailwind is still present in globals.css via `@tailwind base/components/utilities` for future use.
+
+2. **CSS comment must be ASCII-only.** The genesis engine writes files using the Python default encoding (Windows cp1252 on this machine). The em dash U+2014 in `/* Genesis App — Generated Styles */` encodes as `0x97` in cp1252, which is invalid UTF-8. Changed to `/* Genesis App - Generated Styles */`. Also changed validate_m34.py to use `errors="replace"` when reading globals.css to tolerate any residual encoding issues.
+
+3. **`btn-sm` kept on table action buttons; validation check loosened.** Table Edit and Delete buttons use `className="btn btn-sm btn-secondary"` / `className="btn btn-sm btn-danger"` for compact table-row sizing. Rather than removing `btn-sm` (which would make table buttons too large) or creating a separate `className` check string for each combination, validate_m34.py checks for `btn-secondary` and `btn-danger` as substrings anywhere in the page content. More robust: works regardless of class order or additional modifiers.
+
+4. **Empty-state paragraph rendered server-side from template, not loaded from API.** The empty-state (`No {plural} yet. Use the form above to add one.`) is emitted as a conditional JSX expression `{!loading && items.length === 0 && <p ...>}` — no extra API call or component needed.
+
+5. **`error-banner` class replaces inline `style={{ color: "red" }}`.** Inline styles are a regression signal: they bypass the design system and are hard to override. All error display now uses `className="error-banner"` which maps to the `.error-banner` rule in globals.css (red border, background, text color). The validation check explicitly confirms the old pattern is absent.
+
+---
+
 ## 2026-07-01 (M33)
 
 Decision: M33 — Generator Architecture Refactor. Split `nextjs_plugin.py` (460 lines) and `fastapi_plugin.py` (314 lines) into focused subpackage modules with no behavior changes.

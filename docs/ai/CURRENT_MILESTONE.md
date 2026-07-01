@@ -1,6 +1,6 @@
 # Current Milestone
 
-Status: complete — Milestone 33 (Generator Architecture Refactor).
+Status: complete — Milestone 34 (Generated App UI Styling Foundation).
 
 ## Completed Milestones
 
@@ -47,6 +47,7 @@ Status: complete — Milestone 33 (Generator Architecture Refactor).
 - M31: Full CRUD Frontend UI Foundation
 - M32: Multi-Field Entity Forms
 - M33: Generator Architecture Refactor
+- M34: Generated App UI Styling Foundation
 
 ## Current Validation Baseline
 
@@ -59,8 +60,13 @@ npm.cmd test
 git diff --check
 ```
 
-Expected baseline (M33): lint pass, build pass, **23 files / 239 tests pass**, diff --check pass (CRLF warnings only).
-Platform frontend product code was not touched in M33. Generated output is byte-for-byte identical to M32.
+Expected baseline (M34): lint pass, build pass, **23 files / 239 tests pass**, diff --check pass (CRLF warnings only).
+Platform frontend product code was not touched in M34.
+
+Engine files changed in M34 (2 modified, 1 new script):
+- `genesis_engine/plugins/implementations/nextjs_generators/config_generator.py` — globals.css extended with full CSS design system
+- `genesis_engine/plugins/implementations/nextjs_generators/entity_page_generator.py` — className on all structural JSX elements, empty-state paragraph, error-banner class
+- `scripts/validate_m34.py` (new) — 11-section M34 validation runner
 
 Engine files changed in M33 (17 files — 2 modified, 15 new):
 - `genesis_engine/plugins/implementations/nextjs_plugin.py` — rewritten as 48-line thin orchestrator; all logic extracted to `nextjs_generators/` subpackage.

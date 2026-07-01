@@ -42,15 +42,15 @@ def generate_entity_page_code(table, plural: str) -> str:
         req = "" if optional else " required"
         if field_ts == "boolean":
             input_lines.append(
-                f'        <label><input type="checkbox" checked={{Boolean(form.{field_name})}} onChange={{(e) => setForm({{...form, {field_name}: e.target.checked}})}} />{{" "}}{field_name}</label>'
+                f'        <label className="form-label"><input type="checkbox" checked={{Boolean(form.{field_name})}} onChange={{(e) => setForm({{...form, {field_name}: e.target.checked}})}} />{{" "}}{field_name}</label>'
             )
         elif field_ts == "number":
             input_lines.append(
-                f'        <input type="number" name="{field_name}" value={{form.{field_name} ?? 0}} onChange={{(e) => setForm({{...form, {field_name}: Number(e.target.value)}})}} placeholder="{field_name}"{req} />'
+                f'        <input className="form-input" type="number" name="{field_name}" value={{form.{field_name} ?? 0}} onChange={{(e) => setForm({{...form, {field_name}: Number(e.target.value)}})}} placeholder="{field_name}"{req} />'
             )
         else:
             input_lines.append(
-                f'        <input type="text" name="{field_name}" value={{form.{field_name} ?? ""}} onChange={{(e) => setForm({{...form, {field_name}: e.target.value}})}} placeholder="{field_name}"{req} />'
+                f'        <input className="form-input" type="text" name="{field_name}" value={{form.{field_name} ?? ""}} onChange={{(e) => setForm({{...form, {field_name}: e.target.value}})}} placeholder="{field_name}"{req} />'
             )
 
     lines = [
@@ -103,27 +103,28 @@ def generate_entity_page_code(table, plural: str) -> str:
         "  }",
         "",
         "  return (",
-        "    <div>",
-        f"      <h1>{pascal_plural}</h1>",
-        "      {loading && <p>Loading...</p>}",
-        '      {error && <p style={{ color: "red" }}>{error}</p>}',
-        "      <form onSubmit={handleSubmit}>",
+        '    <div className="page-container">',
+        f'      <h1 className="page-title">{pascal_plural}</h1>',
+        '      {loading && <p className="loading-text">Loading...</p>}',
+        '      {error && <p className="error-banner">{error}</p>}',
+        '      <form className="entity-form" onSubmit={handleSubmit}>',
         *input_lines,
-        '        <button type="submit">{editingId !== null ? "Save" : "Add"}</button>',
-        f'        {{editingId !== null && <button type="button" onClick={{() => {{ setEditingId(null); setForm({{ {form_init_inner} }}) }}}}>Cancel</button>}}',
+        '        <button type="submit" className="btn btn-primary">{editingId !== null ? "Save" : "Add"}</button>',
+        f'        {{editingId !== null && <button type="button" className="btn btn-secondary" onClick={{() => {{ setEditingId(null); setForm({{ {form_init_inner} }}) }}}}>Cancel</button>}}',
         "      </form>",
-        "      <table>",
+        '      <table className="data-table">',
         "        <thead>",
         f"          <tr>{th_row}</tr>",
         "        </thead>",
         "        <tbody>",
         "          {items.map((item) => (",
         "            <tr key={item.id}>",
-        f'              {td_row}<td><button onClick={{() => {{ setEditingId(item.id); setForm({{ {edit_form_inner} }}) }}}}>Edit</button><button onClick={{() => handleDelete(item.id)}}>Delete</button></td>',
+        f'              {td_row}<td><div className="table-actions"><button className="btn btn-sm btn-secondary" onClick={{() => {{ setEditingId(item.id); setForm({{ {edit_form_inner} }}) }}}}>Edit</button><button className="btn btn-sm btn-danger" onClick={{() => handleDelete(item.id)}}>Delete</button></div></td>',
         "            </tr>",
         "          ))}",
         "        </tbody>",
         "      </table>",
+        f'      {{!loading && items.length === 0 && <p className="empty-state">No {plural} yet. Use the form above to add one.</p>}}',
         "    </div>",
         "  )",
         "}",
