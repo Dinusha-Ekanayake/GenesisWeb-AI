@@ -1,6 +1,6 @@
 # Current Milestone
 
-Status: complete — Milestone 32 (Multi-Field Entity Forms).
+Status: complete — Milestone 33 (Generator Architecture Refactor).
 
 ## Completed Milestones
 
@@ -46,6 +46,7 @@ Status: complete — Milestone 32 (Multi-Field Entity Forms).
 - M30: Frontend API Integration Foundation
 - M31: Full CRUD Frontend UI Foundation
 - M32: Multi-Field Entity Forms
+- M33: Generator Architecture Refactor
 
 ## Current Validation Baseline
 
@@ -58,15 +59,29 @@ npm.cmd test
 git diff --check
 ```
 
-Expected baseline (M32): lint pass, build pass, **23 files / 239 tests pass**, diff --check pass (CRLF warnings only).
-Platform frontend product code was not touched in M32. Generated frontend now has full CRUD with multi-field forms per entity.
+Expected baseline (M33): lint pass, build pass, **23 files / 239 tests pass**, diff --check pass (CRLF warnings only).
+Platform frontend product code was not touched in M33. Generated output is byte-for-byte identical to M32.
 
-Engine/frontend files changed in M32 (1 modified file):
-- `genesis_engine/plugins/implementations/nextjs_plugin.py` — `_generate_entity_page_code()` rewritten: replaced `fieldValue`/`editingValue` single-field state with `const [form, setForm] = useState<{Name}Create>({...})` typed form object; per-field inputs (text/number/checkbox) via `input_lines` list; `form` passed directly to `createItem`/`updateItem` (no `as unknown as`); Edit onClick pre-populates all fields; Cancel/after-save resets form to defaults.
+Engine files changed in M33 (17 files — 2 modified, 15 new):
+- `genesis_engine/plugins/implementations/nextjs_plugin.py` — rewritten as 48-line thin orchestrator; all logic extracted to `nextjs_generators/` subpackage.
+- `genesis_engine/plugins/implementations/fastapi_plugin.py` — rewritten as 24-line thin orchestrator; all logic extracted to `fastapi_generators/` subpackage.
+- `genesis_engine/plugins/implementations/nextjs_generators/__init__.py` (new)
+- `genesis_engine/plugins/implementations/nextjs_generators/config_generator.py` (new)
+- `genesis_engine/plugins/implementations/nextjs_generators/api_client_generator.py` (new)
+- `genesis_engine/plugins/implementations/nextjs_generators/types_generator.py` (new)
+- `genesis_engine/plugins/implementations/nextjs_generators/entity_page_generator.py` (new)
+- `genesis_engine/plugins/implementations/nextjs_generators/static_page_generator.py` (new)
+- `genesis_engine/plugins/implementations/nextjs_generators/component_generator.py` (new)
+- `genesis_engine/plugins/implementations/fastapi_generators/__init__.py` (new)
+- `genesis_engine/plugins/implementations/fastapi_generators/config_generator.py` (new)
+- `genesis_engine/plugins/implementations/fastapi_generators/database_generator.py` (new)
+- `genesis_engine/plugins/implementations/fastapi_generators/models_generator.py` (new)
+- `genesis_engine/plugins/implementations/fastapi_generators/schemas_generator.py` (new)
+- `genesis_engine/plugins/implementations/fastapi_generators/router_generator.py` (new)
+- `genesis_engine/plugins/implementations/fastapi_generators/main_generator.py` (new)
+- `genesis_engine/plugins/implementations/fastapi_generators/minimal_backend_generator.py` (new)
 
-Scripts changed in M32:
-- `scripts/validate_m32.py` (new) — 11-section multi-field form validation runner.
-- `scripts/validate_m31.py` (updated) — `editingValue` check loosened to accept `[form, setForm]` approach.
+No scripts changed in M33 — regressions from M26–M32 served as the full validation suite.
 
 **Generated frontend structure (entity apps, M32):**
 - `frontend/lib/api.ts` — generic CRUD client (unchanged from M30)

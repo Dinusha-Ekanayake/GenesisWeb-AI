@@ -1,5 +1,44 @@
 # Decision Log
 
+## 2026-07-01 (M33)
+
+Decision: M33 — Generator Architecture Refactor. Split `nextjs_plugin.py` (460 lines) and `fastapi_plugin.py` (314 lines) into focused subpackage modules with no behavior changes.
+
+**Key decisions:**
+
+1. **Free functions in modules, not classes.** Each module exports standalone functions (`generate_config_files()`, `generate_types_code()`, etc.) rather than classes with static methods. The plugin class retains its `GenerationPlugin` interface; the modules are pure utilities. Avoids unnecessary class hierarchies for what are essentially transformation functions.
+
+2. **`entity_page_generator` imports `ts_type` from `types_generator`.** Rather than duplicating the type-mapping helper or passing it as a parameter, `entity_page_generator.py` imports `ts_type` from its sibling module via `from .types_generator import ts_type`. Keeps the two modules coupled deliberately since `entity_page_generator` consumes the same type vocabulary.
+
+3. **`main_generator` is the fastapi orchestration hub.** The `generate_entity_backend()` function (which coordinates schemas + database + models + routers + main) lives in `main_generator.py` alongside `generate_entity_main_code()`. It imports from all other fastapi generator modules. The alternative was a separate `orchestrator.py` but that would be one file with no logic of its own.
+
+4. **Plugin files as thin 24–48 line orchestrators.** `fastapi_plugin.py` is 24 lines; `nextjs_plugin.py` is 48 lines. Both keep only: imports, class declaration with `name`/`target_framework` properties, and `generate()`. All logic lives in subpackage modules.
+
+5. **4-level relative imports for cross-package references.** From `genesis_engine.plugins.implementations.nextjs_generators.config_generator`, reaching `genesis_engine.models.outputs` requires `....models.outputs` (4 dots). This is the correct Python relative import depth; using absolute imports would couple the modules to the install path.
+
+6. **No `__init__.py` re-exports.** Both subpackage `__init__.py` files are empty. Plugin files import directly from the specific module (`from .nextjs_generators.config_generator import generate_config_files`). This keeps import paths explicit and avoids a circular import risk through `__init__.py`.
+
+7. **Validation is regressions-only, no new validate_m33.py.** M33 is a pure refactor — the generated output is identical to M32. Running M26–M32 regressions plus smoke/approve tests constitutes complete validation. A new script would duplicate all M32 checks without adding signal.
+
+**Files changed (M33):**
+- `genesis_engine/plugins/implementations/nextjs_plugin.py` — rewritten as thin orchestrator (48 lines)
+- `genesis_engine/plugins/implementations/fastapi_plugin.py` — rewritten as thin orchestrator (24 lines)
+- `genesis_engine/plugins/implementations/nextjs_generators/__init__.py` (new)
+- `genesis_engine/plugins/implementations/nextjs_generators/config_generator.py` (new)
+- `genesis_engine/plugins/implementations/nextjs_generators/api_client_generator.py` (new)
+- `genesis_engine/plugins/implementations/nextjs_generators/types_generator.py` (new)
+- `genesis_engine/plugins/implementations/nextjs_generators/entity_page_generator.py` (new)
+- `genesis_engine/plugins/implementations/nextjs_generators/static_page_generator.py` (new)
+- `genesis_engine/plugins/implementations/nextjs_generators/component_generator.py` (new)
+- `genesis_engine/plugins/implementations/fastapi_generators/__init__.py` (new)
+- `genesis_engine/plugins/implementations/fastapi_generators/config_generator.py` (new)
+- `genesis_engine/plugins/implementations/fastapi_generators/database_generator.py` (new)
+- `genesis_engine/plugins/implementations/fastapi_generators/models_generator.py` (new)
+- `genesis_engine/plugins/implementations/fastapi_generators/schemas_generator.py` (new)
+- `genesis_engine/plugins/implementations/fastapi_generators/router_generator.py` (new)
+- `genesis_engine/plugins/implementations/fastapi_generators/main_generator.py` (new)
+- `genesis_engine/plugins/implementations/fastapi_generators/minimal_backend_generator.py` (new)
+
 ## 2026-07-01 (M32)
 
 Decision: M32 — Multi-Field Entity Forms. Replace the single-field create/edit input with a per-field form covering all non-id entity fields. Generated entity pages now use a typed `{Name}Create` form state object and pass it directly to `createItem`/`updateItem` — no `as unknown as` assertion required.

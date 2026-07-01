@@ -1492,3 +1492,54 @@ Last updated: 2026-07-01
 
 **Scripts:**
 - `scripts/validate_m32.py` (new) — 11-section M32 validation runner (file tree, api.ts, types.ts, entity page multi-field form content, npm install, npm run build, backend py_compile, backward compat).
+
+Milestone 33 is complete for Generator Architecture Refactor only:
+
+**Goal:** Split monolithic `nextjs_plugin.py` and `fastapi_plugin.py` into focused subpackages without changing any generated output.
+
+**Files created:**
+
+`genesis_engine/plugins/implementations/nextjs_generators/` (7 modules):
+- `__init__.py` — empty package marker
+- `config_generator.py` — `generate_config_files()`: all 9 config artifacts (package.json, tsconfig.json, next.config.js, postcss.config.js, tailwind.config.ts, layout.tsx, globals.css, .gitignore, .env.example)
+- `api_client_generator.py` — `generate_api_lib_code()`: returns plain-string TypeScript API client
+- `types_generator.py` — `pluralize()`, `ts_type()`, `generate_types_code()`: TypeScript interface and Create type generation
+- `entity_page_generator.py` — `generate_entity_page_code()`: full multi-field CRUD page generation; imports `ts_type` from `types_generator`
+- `static_page_generator.py` — `generate_static_pages(page_graph, entity_routes)`: page-graph static page generation with entity route collision dedup
+- `component_generator.py` — `generate_components(component_graph)`: spec component stub generation
+
+`genesis_engine/plugins/implementations/fastapi_generators/` (8 modules):
+- `__init__.py` — empty package marker
+- `config_generator.py` — `generate_config_files()`: requirements.txt, `__init__.py`, .env.example
+- `database_generator.py` — `generate_database_code()`: SQLAlchemy engine/SessionLocal/Base/get_db
+- `models_generator.py` — `pluralize()`, `sa_type()`, `generate_models_code()`: SQLAlchemy ORM models
+- `schemas_generator.py` — `py_type()`, `generate_schemas_code()`: Pydantic v2 schemas (Base/Create/Response flat)
+- `router_generator.py` — `generate_router_code()`: FastAPI router with 5 CRUD routes per entity
+- `main_generator.py` — `generate_entity_main_code()`, `generate_entity_backend()`: main.py + full entity backend orchestration; imports from all other fastapi_generators modules
+- `minimal_backend_generator.py` — `generate_minimal_backend()`: no-entity API fallback
+
+**Files updated:**
+- `nextjs_plugin.py` — reduced to 48 lines; `generate()` method delegates entirely to subpackage functions
+- `fastapi_plugin.py` — reduced to 24 lines; `generate()` method delegates entirely to subpackage functions
+
+**Import paths in subpackage modules:**
+- `....models.outputs` → `genesis_engine.models.outputs` (4-level relative)
+- `...validators.tsx_validator` / `...validators.python_validator` → `genesis_engine.plugins.validators.*` (3-level relative)
+- Intra-subpackage: `from .types_generator import ts_type` (single dot, same package)
+
+**No behavior changes:** All generated output (TypeScript, Python, JSON) is byte-for-byte identical to M32 output. The refactor moves code — it does not touch generation logic.
+
+**Validation (all PASS):**
+- Import sanity: `from genesis_engine.plugins.implementations.nextjs_plugin import NextJsPlugin` → name=`NextJsMinimalGenerator` ✓
+- Import sanity: `from genesis_engine.plugins.implementations.fastapi_plugin import FastApiPlugin` → name=`FastApiMinimalGenerator` ✓
+- `scripts/validate_m32.py` → PASS (all checks)
+- `scripts/validate_m31.py` → PASS (all checks)
+- `scripts/validate_m30.py` → PASS (44/44)
+- `scripts/validate_m29.py` → PASS (45/45, includes live SQLite CRUD + restart persistence)
+- `scripts/validate_m28.py` → PASS (all checks)
+- `scripts/validate_m27.py` → PASS (all checks)
+- `scripts/validate_m26.py` → PASS (all checks)
+- `scripts/approve_plan_genesis.py` → PASS
+- `scripts/smoke_test_genesis.py --generate` → PASS
+
+**Platform frontend validation after M33:** Platform frontend not touched. Baseline unchanged: **23 files / 239 tests pass**.
