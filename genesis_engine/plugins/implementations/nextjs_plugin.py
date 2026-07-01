@@ -4,11 +4,29 @@ from ...rules.base import RuleContext
 from ..validators.tsx_validator import TsxValidator
 from typing import List
 
+
 class NextJsPlugin(GenerationPlugin):
     @property
     def name(self): return "NextJsMinimalGenerator"
     @property
     def target_framework(self): return "nextjs"
+
+    @staticmethod
+    def _pluralize(name: str) -> str:
+        lower = name.lower()
+        if lower.endswith('y') and len(lower) > 1 and lower[-2] not in 'aeiou':
+            return lower[:-1] + 'ies'
+        if lower.endswith('s') or lower.endswith('x') or lower.endswith('z'):
+            return lower + 'es'
+        return lower + 's'
+
+    @staticmethod
+    def _ts_type(raw: str):
+        """Map internal type string (with optional '?' suffix) to (ts_type, is_optional)."""
+        optional = raw.endswith("?")
+        base = raw.rstrip("?")
+        ts = {"string": "string", "integer": "number", "number": "number", "boolean": "boolean"}.get(base, "string")
+        return ts, optional
 
     def _generate_config_files(self) -> List[FileArtifact]:
         configs = []
@@ -148,15 +166,257 @@ out/
 """,
         ))
 
+        configs.append(FileArtifact(
+            path="frontend/.env.example",
+            content="NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8010\n",
+        ))
+
         return configs
+
+    def _generate_api_lib_code(self) -> str:
+        # NOTE: This is a plain string (not an f-string). The ${...} syntax below
+        # is TypeScript template literal syntax, not Python substitution.
+        return """\
+export const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8010"
+
+export async function listItems<T>(resource: string): Promise<T[]> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/${resource}/`)
+  if (!res.ok) throw new Error(`listItems ${resource} failed: ${res.status}`)
+  return res.json() as Promise<T[]>
+}
+
+export async function getItem<T>(resource: string, id: number): Promise<T> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/${resource}/${id}`)
+  if (!res.ok) throw new Error(`getItem ${resource}/${id} failed: ${res.status}`)
+  return res.json() as Promise<T>
+}
+
+export async function createItem<TInput, TOutput>(
+  resource: string,
+  data: TInput,
+): Promise<TOutput> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/${resource}/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  })
+  if (!res.ok) throw new Error(`createItem ${resource} failed: ${res.status}`)
+  return res.json() as Promise<TOutput>
+}
+
+export async function updateItem<TInput, TOutput>(
+  resource: string,
+  id: number,
+  data: TInput,
+): Promise<TOutput> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/${resource}/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  })
+  if (!res.ok) throw new Error(`updateItem ${resource}/${id} failed: ${res.status}`)
+  return res.json() as Promise<TOutput>
+}
+
+export async function deleteItem(resource: string, id: number): Promise<void> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/${resource}/${id}`, {
+    method: "DELETE",
+  })
+  if (!res.ok) throw new Error(`deleteItem ${resource}/${id} failed: ${res.status}`)
+}
+"""
+
+    def _generate_types_code(self, entities) -> str:
+        lines = []
+        for table in entities:
+            name = table.name
+            columns = table.columns or {}
+            effective_columns = columns if columns else {"name": "string"}
+
+            required_cols = [(k, v) for k, v in effective_columns.items() if not v.endswith("?")]
+            optional_cols = [(k, v) for k, v in effective_columns.items() if v.endswith("?")]
+            ordered = required_cols + optional_cols
+
+            lines.append(f"export interface {name} {{")
+            lines.append("  id: number")
+            for field_name, raw_type in ordered:
+                ts_type, optional = self._ts_type(raw_type)
+                if optional:
+                    lines.append(f"  {field_name}?: {ts_type} | null")
+                else:
+                    lines.append(f"  {field_name}: {ts_type}")
+            lines.append("}")
+            lines.append("")
+            lines.append(f'export type {name}Create = Omit<{name}, "id">')
+            lines.append("")
+        return "\n".join(lines)
+
+    def _generate_entity_page_code(self, table, plural: str) -> str:
+        name = table.name
+        columns = table.columns or {}
+        effective_columns = columns if columns else {"name": "string"}
+        pascal_plural = plural[0].upper() + plural[1:]
+
+        # Form state initial values — one per field based on type
+        form_fields_parts = []
+        for field_name, raw_type in effective_columns.items():
+            ts_type, _ = self._ts_type(raw_type)
+            if ts_type == "number":
+                form_fields_parts.append(f'{field_name}: 0')
+            elif ts_type == "boolean":
+                form_fields_parts.append(f'{field_name}: false')
+            else:
+                form_fields_parts.append(f'{field_name}: ""')
+        form_init_inner = ", ".join(form_fields_parts)
+
+        # Edit pre-population: copy all fields from item into form state
+        edit_fields_parts = [f"{f}: item.{f}" for f in effective_columns.keys()]
+        edit_form_inner = ", ".join(edit_fields_parts)
+
+        # Table header and data cells
+        all_fields = ["id"] + list(effective_columns.keys())
+        th_row = "".join(f"<th>{f}</th>" for f in all_fields) + "<th>actions</th>"
+
+        td_parts = []
+        for f in all_fields:
+            if f == "id":
+                td_parts.append(f"<td>{{item.id}}</td>")
+            else:
+                raw = effective_columns.get(f, "string?")
+                if raw.endswith("?"):
+                    td_parts.append(f"<td>{{item.{f} ?? ''}}</td>")
+                else:
+                    td_parts.append(f"<td>{{item.{f}}}</td>")
+        td_row = "".join(td_parts)
+
+        # Per-field input elements for the form
+        input_lines = []
+        for field_name, raw_type in effective_columns.items():
+            ts_type, optional = self._ts_type(raw_type)
+            req = "" if optional else " required"
+            if ts_type == "boolean":
+                input_lines.append(
+                    f'        <label><input type="checkbox" checked={{Boolean(form.{field_name})}} onChange={{(e) => setForm({{...form, {field_name}: e.target.checked}})}} />{{" "}}{field_name}</label>'
+                )
+            elif ts_type == "number":
+                input_lines.append(
+                    f'        <input type="number" name="{field_name}" value={{form.{field_name} ?? 0}} onChange={{(e) => setForm({{...form, {field_name}: Number(e.target.value)}})}} placeholder="{field_name}"{req} />'
+                )
+            else:
+                input_lines.append(
+                    f'        <input type="text" name="{field_name}" value={{form.{field_name} ?? ""}} onChange={{(e) => setForm({{...form, {field_name}: e.target.value}})}} placeholder="{field_name}"{req} />'
+                )
+
+        lines = [
+            '"use client"',
+            "",
+            'import { useEffect, useState, FormEvent } from "react"',
+            f'import {{ listItems, createItem, updateItem, deleteItem }} from "../../lib/api"',
+            f'import type {{ {name}, {name}Create }} from "../../lib/types"',
+            "",
+            "",
+            f"export default function {pascal_plural}Page() {{",
+            f"  const [items, setItems] = useState<{name}[]>([])",
+            "  const [loading, setLoading] = useState(true)",
+            "  const [error, setError] = useState<string | null>(null)",
+            f"  const [form, setForm] = useState<{name}Create>({{ {form_init_inner} }})",
+            '  const [editingId, setEditingId] = useState<number | null>(null)',
+            "",
+            "  useEffect(() => {",
+            f'    listItems<{name}>("{plural}")',
+            "      .then(setItems)",
+            "      .catch((e: Error) => setError(e.message))",
+            "      .finally(() => setLoading(false))",
+            "  }, [])",
+            "",
+            "  async function handleSubmit(e: FormEvent<HTMLFormElement>) {",
+            "    e.preventDefault()",
+            "    try {",
+            "      if (editingId !== null) {",
+            f'        const updated = await updateItem<{name}Create, {name}>("{plural}", editingId, form)',
+            "        setItems((prev) => prev.map((i) => (i.id === editingId ? updated : i)))",
+            "        setEditingId(null)",
+            f"        setForm({{ {form_init_inner} }})",
+            "      } else {",
+            f'        const created = await createItem<{name}Create, {name}>("{plural}", form)',
+            "        setItems((prev) => [...prev, created])",
+            f"        setForm({{ {form_init_inner} }})",
+            "      }",
+            "    } catch (e: unknown) {",
+            '      setError(e instanceof Error ? e.message : "Unknown error")',
+            "    }",
+            "  }",
+            "",
+            f"  async function handleDelete(id: number) {{",
+            "    try {",
+            f'      await deleteItem("{plural}", id)',
+            "      setItems((prev) => prev.filter((i) => i.id !== id))",
+            "    } catch (e: unknown) {",
+            '      setError(e instanceof Error ? e.message : "Unknown error")',
+            "    }",
+            "  }",
+            "",
+            "  return (",
+            "    <div>",
+            f"      <h1>{pascal_plural}</h1>",
+            "      {loading && <p>Loading...</p>}",
+            '      {error && <p style={{ color: "red" }}>{error}</p>}',
+            "      <form onSubmit={handleSubmit}>",
+            *input_lines,
+            '        <button type="submit">{editingId !== null ? "Save" : "Add"}</button>',
+            f'        {{editingId !== null && <button type="button" onClick={{() => {{ setEditingId(null); setForm({{ {form_init_inner} }}) }}}}>Cancel</button>}}',
+            "      </form>",
+            "      <table>",
+            "        <thead>",
+            f"          <tr>{th_row}</tr>",
+            "        </thead>",
+            "        <tbody>",
+            "          {items.map((item) => (",
+            "            <tr key={item.id}>",
+            f'              {td_row}<td><button onClick={{() => {{ setEditingId(item.id); setForm({{ {edit_form_inner} }}) }}}}>Edit</button><button onClick={{() => handleDelete(item.id)}}>Delete</button></td>',
+            "            </tr>",
+            "          ))}",
+            "        </tbody>",
+            "      </table>",
+            "    </div>",
+            "  )",
+            "}",
+            "",
+        ]
+        return "\n".join(lines)
 
     def generate(self, context: RuleContext) -> List[FileArtifact]:
         artifacts = self._generate_config_files()
 
-        # Pages → frontend/app/{route}/page.tsx
+        entities = context.database_graph.tables if context.database_graph else []
+        entity_routes: set = set()
+
+        if entities:
+            artifacts.append(FileArtifact(
+                path="frontend/lib/types.ts",
+                content=self._generate_types_code(entities),
+            ))
+            artifacts.append(FileArtifact(
+                path="frontend/lib/api.ts",
+                content=self._generate_api_lib_code(),
+            ))
+            for table in entities:
+                plural = self._pluralize(table.name)
+                entity_routes.add(plural)
+                path = f"frontend/app/{plural}/page.tsx"
+                page_code = self._generate_entity_page_code(table, plural)
+                is_valid, err_msg = TsxValidator.validate(page_code, filename=path)
+                if not is_valid:
+                    raise ValueError(f"Generation Error (NextJsMinimalGenerator): {err_msg}")
+                artifacts.append(FileArtifact(path=path, content=page_code))
+
+        # Page-graph pages — entity routes take priority; skip collision routes
         if context.page_graph:
             for page in context.page_graph.pages:
                 clean_route = page.route.strip("/")
+                if clean_route in entity_routes:
+                    continue
                 path = f"frontend/app/{clean_route}/page.tsx" if clean_route else "frontend/app/page.tsx"
                 comp_name = page.name.replace(" ", "")
                 code = "\n".join([

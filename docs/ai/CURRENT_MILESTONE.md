@@ -1,6 +1,6 @@
 # Current Milestone
 
-Status: complete — Milestone 29 (SQLAlchemy Model and SQLite Persistence Foundation).
+Status: complete — Milestone 32 (Multi-Field Entity Forms).
 
 ## Completed Milestones
 
@@ -43,6 +43,9 @@ Status: complete — Milestone 29 (SQLAlchemy Model and SQLite Persistence Found
 - M27: Entity Field Inference and Rich Schema Generator
 - M28: Planned API Route Consumption and API Graph Alignment
 - M29: SQLAlchemy Model and SQLite Persistence Foundation
+- M30: Frontend API Integration Foundation
+- M31: Full CRUD Frontend UI Foundation
+- M32: Multi-Field Entity Forms
 
 ## Current Validation Baseline
 
@@ -55,8 +58,43 @@ npm.cmd test
 git diff --check
 ```
 
-Expected baseline (M29): lint pass, build pass, **23 files / 239 tests pass**, diff --check pass (CRLF warnings only).
-Frontend product code was not touched in M29.
+Expected baseline (M32): lint pass, build pass, **23 files / 239 tests pass**, diff --check pass (CRLF warnings only).
+Platform frontend product code was not touched in M32. Generated frontend now has full CRUD with multi-field forms per entity.
+
+Engine/frontend files changed in M32 (1 modified file):
+- `genesis_engine/plugins/implementations/nextjs_plugin.py` — `_generate_entity_page_code()` rewritten: replaced `fieldValue`/`editingValue` single-field state with `const [form, setForm] = useState<{Name}Create>({...})` typed form object; per-field inputs (text/number/checkbox) via `input_lines` list; `form` passed directly to `createItem`/`updateItem` (no `as unknown as`); Edit onClick pre-populates all fields; Cancel/after-save resets form to defaults.
+
+Scripts changed in M32:
+- `scripts/validate_m32.py` (new) — 11-section multi-field form validation runner.
+- `scripts/validate_m31.py` (updated) — `editingValue` check loosened to accept `[form, setForm]` approach.
+
+**Generated frontend structure (entity apps, M32):**
+- `frontend/lib/api.ts` — generic CRUD client (unchanged from M30)
+- `frontend/lib/types.ts` — one `interface {Name}` + `type {Name}Create = Omit<{Name}, "id">` per entity (unchanged from M30)
+- `frontend/app/{plural}/page.tsx` — `"use client"` page per entity with list table, typed multi-field form (one input per non-id field), inline edit (all fields pre-populated), and delete
+- `frontend/.env.example` — `NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8010` (unchanged from M30)
+
+## Stopping Point
+
+Stop here until the user explicitly approves the next milestone.
+
+## Prior Milestone Engine Changes (M31)
+
+Engine/frontend files changed in M31 (1 modified file):
+- `genesis_engine/plugins/implementations/nextjs_plugin.py` — `_generate_entity_page_code()` rewritten: added `updateItem`/`deleteItem` imports; added `editingId`/`editingValue` state; rewrote `handleSubmit` to branch on edit vs create; added `handleDelete`; updated form to dual-mode input with Save/Cancel; added Edit/Delete buttons per table row with `<th>actions</th>` column.
+
+Scripts created in M31:
+- `scripts/validate_m31.py` (new) — 11-section CRUD validation runner.
+
+## Prior Milestone Engine Changes (M30)
+
+Engine/frontend files changed in M30 (1 rewritten file):
+- `genesis_engine/plugins/implementations/nextjs_plugin.py` — added `_pluralize()`, `_ts_type()` helpers; added `_generate_api_lib_code()` (generic typed fetch functions); added `_generate_types_code(entities)` (TypeScript interfaces per entity); added `_generate_entity_page_code(table, plural)` (`"use client"` pages with `useEffect`/`useState` list + create form); extended `_generate_config_files()` with `frontend/.env.example`; updated `generate()` to dispatch on `context.database_graph.tables` for entity vs no-entity path; entity routes take priority over page-graph routes (collision dedup).
+
+Scripts created in M30:
+- `scripts/validate_m30.py` (new) — 44-check validation runner.
+
+## Prior Milestone Engine Changes (M29)
 
 Engine/backend files changed in M29 (1 rewritten file):
 - `genesis_engine/plugins/implementations/fastapi_plugin.py` — replaced in-memory `storage.py` generation with real SQLAlchemy + SQLite persistence: added `_sa_type()`, `_generate_database_code()` (engine/SessionLocal/Base/get_db), `_generate_models_code()` (one SQLAlchemy model per entity); updated `_generate_schemas_code()` for `ConfigDict(from_attributes=True)`; rewrote `_generate_router_code()` for SQLAlchemy `Session = Depends(get_db)` CRUD; updated `_generate_entity_main_code()` to call `Base.metadata.create_all(bind=engine)`; deleted `_generate_storage_code()`.
@@ -64,12 +102,6 @@ Engine/backend files changed in M29 (1 rewritten file):
 Scripts changed in M29:
 - `scripts/validate_m29.py` (new) — 45-check validation runner: file tree, py_compile, content checks, live CRUD on port 8010, restart-persistence check, `genesis_app.db` existence check.
 - `scripts/validate_m26.py`, `scripts/validate_m27.py` (modified) — required-file/content checks updated to verify `database.py`/`models.py` instead of `storage.py`.
-
-**Generated SQLite file location:** `workspace/{project_id}/backend/genesis_app.db` — confirmed present after live CRUD + restart test on `sqlite_persistence_001`.
-
-## Stopping Point
-
-Stop here until the user explicitly approves the next milestone.
 
 ## Prior Milestone Engine Changes (M28)
 

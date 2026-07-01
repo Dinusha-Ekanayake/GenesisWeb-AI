@@ -1328,3 +1328,167 @@ backend/genesis_app.db          (created at runtime on first request)
 - `scripts/validate_m26.py`, `scripts/validate_m27.py` (modified) — updated required-file lists and content checks to reflect `database.py`/`models.py` replacing `storage.py`.
 
 **Next task:** Wait for user approval of the next milestone.
+
+---
+
+## Milestone 30 — Frontend API Integration Foundation
+
+**Status: complete (2026-07-01)**
+
+Made generated Next.js frontends consume the generated FastAPI CRUD APIs. Entity-bearing apps now emit a typed API client, TypeScript interface definitions, and real client-side pages with live data fetching and create forms.
+
+**1 file rewritten (plugin only, no orchestrator/controller/model changes):**
+
+`genesis_engine/plugins/implementations/nextjs_plugin.py`:
+
+- `_pluralize(name)` static method — same algorithm as `FastApiPlugin` and `ApiPlanner` (same precedent: intentional duplication).
+- `_ts_type(raw)` static method — maps internal type string (with `?` suffix) to `(ts_type, is_optional)`: string→string, integer/number→number, boolean→boolean.
+- `_generate_config_files()` — extended to include `frontend/.env.example` (`NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8010`).
+- `_generate_api_lib_code()` (new) — static generic API client: `API_BASE_URL` with `??` fallback to port 8010; `listItems<T>`, `getItem<T>`, `createItem<TI,TO>`, `updateItem<TI,TO>`, `deleteItem` — one set of 5 typed fetch functions covers all entities. Collection routes use trailing slash matching FastAPI's canonical path.
+- `_generate_types_code(entities)` (new) — one `export interface {Name}` per entity (`id: number`, required fields, `optional?: type | null`) + `export type {Name}Create = Omit<{Name}, "id">`.
+- `_generate_entity_page_code(table, plural)` (new) — `"use client"` page per entity: `import { useEffect, useState, FormEvent }`, `import { listItems, createItem }`, `import type { {Name}, {Name}Create }`; `useEffect` calls `listItems` on mount; `handleSubmit` calls `createItem`; renders loading/error state, single-field form (first required string field), and a `<table>` with all entity fields as columns.
+- `generate()` — dispatches on `context.database_graph.tables`: entity path emits `lib/types.ts`, `lib/api.ts`, one page per entity; `entity_routes` set tracks emitted routes; page-graph pages skip any route already emitted as an entity page (entity wins on collision). No-entity path unchanged.
+
+**Generated file tree for `frontend_api_integration_001` (CRM — 6 entities, 10 page files total):**
+```
+frontend/.env.example
+frontend/lib/api.ts              (5 generic typed CRUD functions)
+frontend/lib/types.ts            (6 interfaces + 6 Create types)
+frontend/app/customers/page.tsx  (useEffect list + name form)
+frontend/app/deals/page.tsx      (useEffect list + title form)
+frontend/app/activities/page.tsx (useEffect list + title form)
+frontend/app/users/page.tsx
+frontend/app/teams/page.tsx
+frontend/app/notes/page.tsx
+frontend/app/{page-graph-routes}/page.tsx  (remaining page-graph pages, collision-free)
+```
+
+**Validation (44 checks PASS via `scripts/validate_m30.py`):**
+- `frontend/lib/api.ts`: all 5 exports (`API_BASE_URL`, `listItems`, `getItem`, `createItem`, `updateItem`, `deleteItem`), port 8010, `NEXT_PUBLIC_API_BASE_URL`, `/api/v1/` prefix, `??` operator ✓
+- `types.ts`: Customer/Deal/Activity interfaces with rich fields (`name`, `email`, `phone`, `company`, `status`), `id: number`, `Omit<>`, `| null` ✓
+- `customers/page.tsx`: `"use client"`, `useEffect`, `useState`, `listItems`, `createItem`, imports from `../../lib/api` and `../../lib/types`, form submit handler ✓
+- `npm install`: exit code 0 ✓
+- `npm run build` (Next.js 14, TypeScript strict): exit code 0 ✓
+- All 12 generated backend `.py` files pass `py_compile` ✓
+- `simple_no_entities_001`: `lib/api.ts` absent (correctly skipped), `frontend/.env.example` present, `home/page.tsx` present ✓
+
+**Regression (all PASS):**
+- `validate_m29.py` (45/45), `validate_m28.py`, `validate_m27.py`, `validate_m26.py`, `approve_plan_genesis.py`, `smoke_test_genesis.py --generate` ✓
+
+**Remaining risks / deferred to future milestones:**
+- No edit/delete UI — create form only; the backend `PUT`/`DELETE` routes exist (M29) but no frontend button triggers them.
+- Single-field form — only the first required string field is in the create form; all other fields remain null until a richer form is added.
+- No real auth on generated routes — `NEXT_PUBLIC_API_BASE_URL` is a plain unauthenticated HTTP target.
+- `as unknown as {Name}Create` type assertion in create call — bypasses TypeScript structural check for the partial form payload; works at runtime because non-form fields are optional in the backend schema.
+
+**Frontend validation after M30:** Platform frontend not touched. Baseline unchanged: **23 files / 239 tests pass**.
+
+**Scripts:**
+- `scripts/validate_m30.py` (new) — 44-check M30 validation runner (file tree, api.ts/types.ts/entity page content, npm install, npm run build, backend py_compile, backward compat).
+
+**Next task:** Wait for user approval of the next milestone.
+
+---
+
+## Milestone 31 — Full CRUD Frontend UI Foundation
+
+Last updated: 2026-07-01
+
+**Goal:** Extend generated entity pages to exercise all 5 generated FastAPI CRUD routes from the frontend. M30 generated list/create only; M31 adds edit and delete.
+
+**1 file modified (plugin only, no orchestrator/controller/model changes):**
+
+`genesis_engine/plugins/implementations/nextjs_plugin.py` — `_generate_entity_page_code()` rewritten:
+
+- Import line updated: `listItems, createItem, updateItem, deleteItem` (added `updateItem`, `deleteItem`).
+- Two new state variables: `editingId: number | null` (null = create mode, non-null = edit mode) and `editingValue: string` (text in the shared input while editing).
+- `handleSubmit` now branches on `editingId`: if editing, calls `updateItem<{Name}Create, {Name}>(plural, editingId, payload)` and replaces the item in local state via `prev.map()`; if creating, calls `createItem` as before.
+- `handleDelete(id: number)` (new async function): calls `deleteItem(plural, id)`, removes item from local state via `prev.filter()`.
+- Form input switches mode: `value={editingId !== null ? editingValue : fieldValue}`, `onChange` routes to `setEditingValue` or `setFieldValue` depending on mode.
+- Submit button label: `{editingId !== null ? "Save" : "Add"}`.
+- Cancel button: rendered only when `editingId !== null`; onClick sets `editingId(null)` and clears `editingValue`.
+- Table row action column (new): `<th>actions</th>` header added; each row gets `<td>` with Edit and Delete buttons. Edit onClick: `setEditingId(item.id); setEditingValue(item.{form_field})`. Delete onClick: `handleDelete(item.id)`.
+
+**Generated file tree for `frontend_full_crud_001` (CRM — 6 entities, 10 page files total):**
+```
+frontend/.env.example
+frontend/lib/api.ts              (5 generic typed CRUD functions — unchanged from M30)
+frontend/lib/types.ts            (6 interfaces + 6 Create types — unchanged from M30)
+frontend/app/customers/page.tsx  (list + create + edit + delete)
+frontend/app/deals/page.tsx
+frontend/app/activities/page.tsx
+frontend/app/users/page.tsx
+frontend/app/teams/page.tsx
+frontend/app/notes/page.tsx
+frontend/app/{page-graph-routes}/page.tsx  (remaining page-graph pages, collision-free)
+```
+
+**Validation (all checks PASS via `scripts/validate_m31.py`):**
+- File tree: `lib/api.ts`, `lib/types.ts`, `.env.example`, `layout.tsx`, `package.json`, backend files, 10 entity page files ✓
+- `customers/page.tsx`: `updateItem`, `deleteItem`, `editingId`, `editingValue`, Edit, Delete, Cancel, `handleDelete`, imports from `../../lib/api` and `../../lib/types` ✓
+- `npm install`: exit code 0 ✓
+- `npm run build` (Next.js 14, TypeScript strict): exit code 0 ✓
+- All 12 generated backend `.py` files pass `py_compile` ✓
+- `simple_no_entities_001`: `lib/api.ts` absent, `frontend/.env.example` present, `home/page.tsx` present ✓
+
+**Regression (all PASS):**
+- `validate_m30.py` (44/44), `validate_m29.py` (45/45), `validate_m28.py`, `validate_m27.py`, `validate_m26.py`, `approve_plan_genesis.py`, `smoke_test_genesis.py --generate` ✓
+
+**Remaining risks / deferred to future milestones:**
+- Single-field edit form — only the first required string field is editable via the form; other fields are sent as null by the `as unknown as {Name}Create` assertion (the backend PUT overwrites all fields).
+- No confirmation dialog on delete — immediate on button click.
+- No auth on generated routes.
+
+**Platform frontend validation after M31:** Platform frontend not touched. Baseline unchanged: **23 files / 239 tests pass**.
+
+**Scripts:**
+- `scripts/validate_m31.py` (new) — 11-section M31 validation runner (file tree, api.ts content, types.ts content, entity page full-CRUD content, npm install, npm run build, backend py_compile, backward compat).
+
+---
+
+## Milestone 32 — Multi-Field Entity Forms
+
+Last updated: 2026-07-01
+
+**Goal:** Replace the M31 single-field create/edit input with a per-field form that covers all non-id entity fields, using typed `{Name}Create` form state.
+
+**1 file modified (plugin only):**
+
+`genesis_engine/plugins/implementations/nextjs_plugin.py` — `_generate_entity_page_code()` rewritten again:
+
+- `form_field`/`fieldValue`/`editingValue` removed entirely.
+- `form_fields_parts` computed: each column → `field: default` (string→`""`, number→`0`, boolean→`false`). Joined as `form_init_inner`.
+- `edit_fields_parts` computed: each column → `field: item.field` for Edit pre-population. Joined as `edit_form_inner`.
+- `const [form, setForm] = useState<{Name}Create>({ {form_init_inner} })` — typed form state.
+- `handleSubmit` passes `form` directly: `createItem<{Name}Create, {Name}>(plural, form)` and `updateItem<{Name}Create, {Name}>(plural, editingId, form)`. No `as unknown as` assertion.
+- After create/update/cancel: `setForm({ {form_init_inner} })` resets to empty defaults.
+- Per-field inputs generated via `input_lines` list:
+  - `boolean` → `<label><input type="checkbox" checked={Boolean(form.field)} onChange={(e) => setForm({...form, field: e.target.checked})} />{" "}field</label>`
+  - `number`/`integer` → `<input type="number" value={form.field ?? 0} onChange={(e) => setForm({...form, field: Number(e.target.value)})} placeholder="field" />`
+  - `string` → `<input type="text" value={form.field ?? ""} onChange={(e) => setForm({...form, field: e.target.value})} placeholder="field" />`
+  - Required fields get `required` attribute; optional fields do not.
+- Edit onClick: `setEditingId(item.id); setForm({ {edit_form_inner} })` — pre-populates all fields from item.
+- Cancel onClick: `setEditingId(null); setForm({ {form_init_inner} })` — resets all fields.
+- `input_lines` unpacked via `*input_lines` into the `lines` list.
+
+**Validation (all checks PASS via `scripts/validate_m32.py`, project `multi_field_crud_001`):**
+- `customers/page.tsx`: `useState<CustomerCreate>`, `[form, setForm]`, `form` passed to `createItem`/`updateItem`, per-field inputs (name, email, phone, company, status), `setForm({...form, field: ...})` spread, no `fieldValue`/`editingValue`, no `as unknown as`, Edit sets `editingId` + pre-populates `form`, imports from `../../lib/api` and `../../lib/types` ✓
+- `npm install` exit code 0 ✓
+- `npm run build` (TypeScript strict) exit code 0 ✓
+- All 12 backend `.py` files pass `py_compile` ✓
+- `simple_no_entities_001`: `lib/api.ts` absent, `.env.example` present, `home/page.tsx` present ✓
+
+**Regression (all PASS):**
+- `validate_m31.py` (updated: `editingValue` check loosened to accept `[form, setForm]` approach), `validate_m30.py`, `validate_m29.py` (45/45), `validate_m28.py`, `validate_m27.py`, `validate_m26.py`, `approve_plan_genesis.py`, `smoke_test_genesis.py --generate` ✓
+
+**Also changed:** `scripts/validate_m31.py` — `editingValue` check updated to `editingValue OR [form, setForm]` so M31 regression continues to pass with M32's form-based implementation.
+
+**Remaining risks / deferred to future milestones:**
+- `Number(e.target.value)` returns `NaN` if user clears a number input; `NaN` serializes to `null` in JSON, which the backend stores as null. Acceptable for M32.
+- Optional number fields initialize as `0`, which sends `0` to the backend even if untouched. A null default would be cleaner but requires more complex form value handling.
+- No confirmation on delete. No auth.
+
+**Platform frontend validation after M32:** Platform frontend not touched. Baseline unchanged: **23 files / 239 tests pass**.
+
+**Scripts:**
+- `scripts/validate_m32.py` (new) — 11-section M32 validation runner (file tree, api.ts, types.ts, entity page multi-field form content, npm install, npm run build, backend py_compile, backward compat).
